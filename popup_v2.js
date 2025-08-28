@@ -36,46 +36,51 @@ function setStatus(message, isError = false) {
 // Главная функция
 iframe.render(async () => {
   try {
-    setStatus('1/5: Запрос всех данных (карточка, пространство)...');
-    const allData = await iframe.getAllData();
-    console.log('Kaiten allData response:', allData);
-
-    if (!allData || !allData.card || !allData.space) {
-      setStatus(`Ошибка: Не удалось получить полные данные. Получено: ${JSON.stringify(allData)}`, true);
-      return;
+    setStatus('1/6: Получение данных о текущей карточке...');
+    currentCard = await iframe.getCard();
+    if (!currentCard || !currentCard.id) {
+        setStatus(`Ошибка: Не удалось получить данные о карточке.`, true);
+        return;
     }
+    setStatus(`2/6: ID карточки получен: ${currentCard.id}`);
+
+    setStatus('3/6: Получение данных о доске...');
+    const board = await iframe.getBoard();
+     if (!board || !board.id) {
+        setStatus(`Ошибка: Не удалось получить данные о доске.`, true);
+        return;
+    }
+    setStatus(`4/6: ID доски получен: ${board.id}. Запрос деталей доски...`);
+
+    const boardDetails = await iframe.boards.get(board.id);
+    if (!boardDetails || !boardDetails.space_id) {
+        setStatus(`Ошибка: Не удалось получить ID пространства из данных доски.`, true);
+        return;
+    }
+    const currentSpaceId = boardDetails.space_id;
+    setStatus(`5/6: ID пространства получен: ${currentSpaceId}. Запрос полей...`);
     
-    currentCard = allData.card;
-    const currentSpaceId = allData.space.id;
-    setStatus(`2/5: ID пространства получен: ${currentSpaceId}`);
-
-    setStatus('3/5: Запрос полей карточки...');
     const cardProps = await iframe.getCardProperties('customProperties');
-    console.log('Kaiten cardProps response:', cardProps);
-
     const innField = cardProps.find(prop => prop.property.id === innFieldId);
     if (!innField || !innField.value) {
-      setStatus(`Ошибка: Поле ИНН (ID ${innFieldId}) не найдено или пустое в этой карточке.`, true);
+      setStatus(`Ошибка: Поле ИНН (ID ${innFieldId}) не найдено или пустое.`, true);
       return;
     }
     const innValue = innField.value;
     innInput.value = innValue;
-    setStatus(`4/5: ИНН найден: ${innValue}`);
     
     const searchSpaceId = spaceMap[currentSpaceId];
     if (!searchSpaceId) {
       setStatus(`Ошибка: Текущее пространство (${currentSpaceId}) не настроено для поиска.`, true);
       return;
     }
-    setStatus(`5/5: Ищем в пространстве ${searchSpaceId}. Запускаем поиск...`);
+    setStatus(`6/6: ИНН: ${innValue}. Ищем в пространстве ${searchSpaceId}.`);
     
-    // Показываем основной интерфейс
     statusInfo.style.display = 'none';
     mainUI.style.display = 'block';
     loader.style.display = 'block';
     iframe.fitSize(contentDiv);
 
-    // Запускаем поиск
     const foundCards = await iframe.cards.find({
       space_id: searchSpaceId,
       custom_fields: [{ field_id: innFieldId, value: innValue }]
