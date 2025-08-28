@@ -21,9 +21,10 @@ const contentDiv = document.getElementById('content');
 let currentCard = null;
 
 // Функция поиска карточек
-async function findAndRenderCards(api, inn, searchSpaceId) {
+async function findAndRenderCards(inn, searchSpaceId) {
   try {
-    const foundCards = await api.cards.find({
+    // ===== ИЗМЕНЕНИЕ ЗДЕСЬ: Вызываем cards.find напрямую через iframe =====
+    const foundCards = await iframe.cards.find({
       space_id: searchSpaceId,
       custom_fields: [{ field_id: innFieldId, value: inn }]
     });
@@ -67,10 +68,6 @@ async function findAndRenderCards(api, inn, searchSpaceId) {
 // Главная функция, которая запускается при открытии попапа
 iframe.render(async () => {
   try {
-    // ===== ИЗМЕНЕНИЕ ЗДЕСЬ =====
-    const api = await Addon.api(); 
-    // ===========================
-    
     currentCard = await iframe.getCard();
     const cardProps = await iframe.getCardProperties('customProperties');
     
@@ -97,7 +94,8 @@ iframe.render(async () => {
     loader.style.display = 'block';
     iframe.fitSize(contentDiv);
     
-    findAndRenderCards(api, innValue, searchSpaceId);
+    // Убрали передачу 'api', так как он больше не нужен
+    findAndRenderCards(innValue, searchSpaceId);
 
   } catch (error) {
     console.error('Ошибка при инициализации:', error);
@@ -116,11 +114,8 @@ setParentButton.addEventListener('click', async () => {
   const parentCardId = parseInt(selectedRadio.value, 10);
   
   try {
-    // ===== И ИЗМЕНЕНИЕ ЗДЕСЬ =====
-    const api = await Addon.api();
-    // =============================
-    
-    await api.cards.update(currentCard.id, { parent_id: parentCardId });
+    // ===== И ИЗМЕНЕНИЕ ЗДЕСЬ: Вызываем cards.update напрямую через iframe =====
+    await iframe.cards.update(currentCard.id, { parent_id: parentCardId });
     
     iframe.showSnackbar('Родительская карточка успешно установлена!', 'success');
     iframe.closePopup();
