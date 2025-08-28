@@ -51,7 +51,6 @@ async function findAndRenderCards(api, inn, searchSpaceId) {
 
     resultsBlock.style.display = 'block';
     
-    // Активируем кнопку, когда пользователь выберет карточку
     choicesContainer.addEventListener('change', () => {
         setParentButton.disabled = false;
     });
@@ -68,7 +67,10 @@ async function findAndRenderCards(api, inn, searchSpaceId) {
 // Главная функция, которая запускается при открытии попапа
 iframe.render(async () => {
   try {
-    const api = await iframe.getKaitenApi();
+    // ===== ИЗМЕНЕНИЕ ЗДЕСЬ =====
+    const api = await Addon.api(); 
+    // ===========================
+    
     currentCard = await iframe.getCard();
     const cardProps = await iframe.getCardProperties('customProperties');
     
@@ -114,7 +116,10 @@ setParentButton.addEventListener('click', async () => {
   const parentCardId = parseInt(selectedRadio.value, 10);
   
   try {
-    const api = await iframe.getKaitenApi();
+    // ===== И ИЗМЕНЕНИЕ ЗДЕСЬ =====
+    const api = await Addon.api();
+    // =============================
+    
     await api.cards.update(currentCard.id, { parent_id: parentCardId });
     
     iframe.showSnackbar('Родительская карточка успешно установлена!', 'success');
