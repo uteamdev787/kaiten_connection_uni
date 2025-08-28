@@ -9,8 +9,10 @@ Addon.initialize({
         return buttonContext.openPopup({
           type: 'iframe',
           title: 'Поиск и установка родительской карточки',
-          url: './popup.html',
-          height: 250, // Начальная высота, будет меняться
+          // ===== ИЗМЕНЕНИЕ ЗДЕСЬ =====
+          url: './popup_v2.html', 
+          // ===========================
+          height: 250,
           width: 600
         });
       }
