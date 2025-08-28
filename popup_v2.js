@@ -1,120 +1,62 @@
-// Инициализация iframe SDK
+// --- ДИАГНОСТИЧЕСКАЯ ВЕРСИЯ ---
 const iframe = Addon.iframe();
 
-// --- КОНФИГУРАЦИЯ ---
-const spaceMap = {
-  517319: 517325,
-  517314: 532009,
-  517324: 532011
-};
-const innFieldId = 415447;
-// --- КОНЕЦ КОНФИГУРАЦИИ ---
-
+// Получаем элементы DOM
 const statusInfo = document.getElementById('status-info');
 const mainUI = document.getElementById('main-ui');
-const innInput = document.getElementById('innInput');
-const loader = document.getElementById('loader');
-const resultsBlock = document.getElementById('results');
-const noResultsBlock = document.getElementById('noResults');
-const choicesContainer = document.getElementById('choices');
-const setParentButton = document.getElementById('setParentButton');
-const cancelButton = document.getElementById('cancelButton');
-const contentDiv = document.getElementById('content');
-
-let currentCardId = null;
 
 function setStatus(message, isError = false) {
   console.log(message);
-  statusInfo.textContent = message;
-  if (isError) statusInfo.style.color = 'red';
+  if (statusInfo) {
+      statusInfo.innerHTML += message + '<br>';
+      if (isError) statusInfo.style.color = 'red';
+  }
 }
 
 iframe.render(async () => {
   try {
-    // ===== ИЗМЕНЕНИЕ ЗДЕСЬ =====
-    // Получаем данные, переданные из client.js, с помощью iframe.getArgs()
-    setStatus('1/5: Получение аргументов (card_id, board_id)...');
-    const args = await iframe.getArgs();
-    if (!args || !args.card_id || !args.board_id) {
-        setStatus(`Ошибка: Не удалось получить card_id и board_id из аргументов.`, true);
-        return;
-    }
-    currentCardId = args.card_id;
-    const boardId = args.board_id;
-    setStatus(`2/5: ID карточки ${currentCardId}, ID доски ${boardId}. Запрос деталей доски...`);
-    // ===========================
+    if(mainUI) mainUI.style.display = 'none';
+    setStatus('--- НАЧАЛО ДИАГНОСТИКИ ---');
 
-    const boardDetails = await iframe.boards.get(boardId);
-    if (!boardDetails || !boardDetails.space_id) {
-        setStatus(`Ошибка: Не удалось получить ID пространства из данных доски.`, true);
-        return;
-    }
-    const currentSpaceId = boardDetails.space_id;
-    setStatus(`3/5: ID пространства: ${currentSpaceId}. Запрос полей карточки...`);
-    
-    const cardProps = await iframe.getCardProperties('customProperties');
-    const innField = cardProps.find(prop => prop.property.id === innFieldId);
-    if (!innField || !innField.value) {
-      setStatus(`Ошибка: Поле ИНН (ID ${innFieldId}) не найдено или пустое.`, true);
-      return;
-    }
-    const innValue = innField.value;
-    innInput.value = innValue;
-    setStatus(`4/5: ИНН найден: ${innValue}.`);
-    
-    const searchSpaceId = spaceMap[currentSpaceId];
-    if (!searchSpaceId) {
-      setStatus(`Ошибка: Пространство (${currentSpaceId}) не настроено для поиска.`, true);
-      return;
-    }
-    setStatus(`5/5: Начинаем поиск в пространстве ${searchSpaceId}...`);
-    
-    statusInfo.style.display = 'none';
-    mainUI.style.display = 'block';
-    loader.style.display = 'block';
-    iframe.fitSize(contentDiv);
+    // 1. Выводим в консоль весь объект iframe, чтобы увидеть все его методы
+    setStatus('1. Вывод объекта "iframe" в консоль...');
+    console.log('DIAGNOSTIC: The "iframe" object is:', iframe);
 
-    const foundCards = await iframe.cards.find({
-      space_id: searchSpaceId,
-      custom_fields: [{ field_id: innFieldId, value: innValue }]
-    });
-
-    loader.style.display = 'none';
-
-    if (!foundCards || foundCards.length === 0) {
-      noResultsBlock.style.display = 'block';
+    // 2. Проверяем наличие и результат iframe.getCard()
+    setStatus('2. Проверка iframe.getCard()...');
+    if (typeof iframe.getCard === 'function') {
+        const card = await iframe.getCard();
+        console.log('DIAGNOSTIC: iframe.getCard() result:', card);
+        setStatus('   => OK. Функция существует.');
     } else {
-      choicesContainer.innerHTML = '';
-      foundCards.forEach(card => {
-        const radioId = `card-${card.id}`;
-        const label = document.createElement('label');
-        label.className = 'radio-label';
-        label.innerHTML = `<input type="radio" name="parentCard" value="${card.id}" id="${radioId}"> #${card.id} - ${card.title}`;
-        choicesContainer.appendChild(label);
-      });
-      resultsBlock.style.display = 'block';
-      choicesContainer.addEventListener('change', () => setParentButton.disabled = false);
+        setStatus('   => ОШИБКА: iframe.getCard НЕ является функцией.', true);
     }
-    iframe.fitSize(contentDiv);
+    
+    // 3. Проверяем наличие и результат iframe.getCardProperties()
+    setStatus('3. Проверка iframe.getCardProperties()...');
+     if (typeof iframe.getCardProperties === 'function') {
+        const props = await iframe.getCardProperties('customProperties');
+        console.log('DIAGNOSTIC: iframe.getCardProperties() result:', props);
+        setStatus('   => OK. Функция существует.');
+    } else {
+        setStatus('   => ОШИБКА: iframe.getCardProperties НЕ является функцией.', true);
+    }
+
+    // 4. Проверяем наличие iframe.getArgs() - главная проверка
+    setStatus('4. Проверка iframe.getArgs()...');
+    if (typeof iframe.getArgs === 'function') {
+        const args = await iframe.getArgs();
+        console.log('DIAGNOSTIC: iframe.getArgs() result:', args);
+        setStatus('   => OK. Функция существует.');
+    } else {
+        setStatus('   => ОШИБКА: iframe.getArgs НЕ является функцией.', true);
+    }
+
+    setStatus('<br>--- ДИАГНОСТИКА ЗАВЕРШЕНА ---');
+    setStatus('Пожалуйста, скопируйте ВСЁ из консоли (Ctrl+A, Ctrl+C) и отправьте.');
 
   } catch (error) {
-    setStatus(`Критическая ошибка: ${error.message}`, true);
-    console.error('Критическая ошибка:', error);
+    setStatus(`КРИТИЧЕСКАЯ ОШИБКА В ПРОЦЕССЕ ДИАГНОСТИКИ: ${error.message}`, true);
+    console.error('DIAGNOSTIC ERROR:', error);
   }
 });
-
-setParentButton.addEventListener('click', async () => {
-  const selectedRadio = document.querySelector('input[name="parentCard"]:checked');
-  if (!selectedRadio) return;
-  const parentCardId = parseInt(selectedRadio.value, 10);
-  try {
-    await iframe.cards.update(currentCardId, { parent_id: parentCardId });
-    iframe.showSnackbar('Связь с договором установлена!', 'success');
-    iframe.closePopup();
-  } catch (error) {
-     console.error('Ошибка при установке родителя:', error);
-     iframe.showSnackbar('Не удалось установить родительскую карточку.', 'error');
-  }
-});
-
-cancelButton.addEventListener('click', () => iframe.closePopup());
