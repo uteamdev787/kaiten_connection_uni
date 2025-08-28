@@ -25,7 +25,6 @@ let currentCard = null;
 // Функция для поиска и отображения карточек
 async function findAndRenderCards(inn, searchSpaceId) {
   try {
-    // ПРАВИЛЬНЫЙ ВЫЗОВ API: через объект iframe
     const foundCards = await iframe.cards.find({
       space_id: searchSpaceId,
       custom_fields: [{ field_id: innFieldId, value: inn }]
@@ -44,7 +43,6 @@ async function findAndRenderCards(inn, searchSpaceId) {
       const radioId = `card-${card.id}`;
       const label = document.createElement('label');
       label.className = 'radio-label';
-      label.setAttribute('for', radioId);
       label.innerHTML = `<input type="radio" name="parentCard" value="${card.id}" id="${radioId}"> #${card.id} - ${card.title}`;
       choicesContainer.appendChild(label);
     });
@@ -67,7 +65,12 @@ async function findAndRenderCards(inn, searchSpaceId) {
 // Главная функция, которая запускается при открытии попапа
 iframe.render(async () => {
   try {
-    currentCard = await iframe.getCard();
+    // ===== ИЗМЕНЕНИЕ ЗДЕСЬ: Используем getAllData() =====
+    const allData = await iframe.getAllData();
+    currentCard = allData.card;
+    const currentSpaceId = allData.space.id;
+    // ===================================================
+    
     const cardProps = await iframe.getCardProperties('customProperties');
     
     const innField = cardProps.find(prop => prop.property.id === innFieldId);
@@ -81,11 +84,10 @@ iframe.render(async () => {
     
     innInput.value = innValue;
     
-    const currentSpaceId = currentCard.space.id;
     const searchSpaceId = spaceMap[currentSpaceId];
 
     if (!searchSpaceId) {
-      iframe.showSnackbar('Текущее пространство не настроено для поиска.', 'info');
+      iframe.showSnackbar('Это пространство не настроено для поиска. Связь с договором невозможна.', 'info');
       setParentButton.disabled = true;
       return;
     }
@@ -112,10 +114,9 @@ setParentButton.addEventListener('click', async () => {
   const parentCardId = parseInt(selectedRadio.value, 10);
   
   try {
-    // ПРАВИЛЬНЫЙ ВЫЗОВ API: через объект iframe
     await iframe.cards.update(currentCard.id, { parent_id: parentCardId });
     
-    iframe.showSnackbar('Родительская карточка успешно установлена!', 'success');
+    iframe.showSnackbar('Связь с договором (родительская карточка) успешно установлена!', 'success');
     iframe.closePopup();
 
   } catch (error) {
