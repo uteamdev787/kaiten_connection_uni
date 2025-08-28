@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://files.kaiten.ru/web-sdk/v1.min.js"></script>
+  <link href="https://files.kaiten.ru/web-sdk/v1.min.css" rel="stylesheet" />
+  <style>
+    body { padding: 16px; }
+    .loader {
+      display: none; text-align: center; padding: 20px;
+    }
+    #results {
+      margin-top: 16px; padding-top: 16px;
+      border-top: 1px solid var(--addon-divider);
+    }
+    .radio-label {
+      display: block; padding: 8px; cursor: pointer;
+      border-radius: 4px;
+    }
+    .radio-label:hover { background-color: var(--addon-background-level2); }
+    .radio-label input { margin-right: 8px; }
+    #buttons {
+      display: flex; justify-content: flex-end; gap: 8px;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="content">
+    <div id="initialState">
+      <label class="addon-input-label">ИНН для поиска</label>
+      <input type="text" id="innInput" class="addon-input" style="width: 100%; margin-top: 4px;" readonly>
+    </div>
+    
+    <div id="loader" class="loader">
+      <p>Ищем карточки...</p>
+    </div>
+
+    <div id="results" style="display: none;">
+      <p>Найдено несколько карточек. Выберите одну, чтобы сделать ее родительской:</p>
+      <div id="choices"></div>
+    </div>
+    
+    <div id="noResults" style="display: none; margin-top: 16px;">
+        <p>Карточки с таким ИНН в связанном пространстве не найдены.</p>
+    </div>
+
+    <div id="buttons">
+      <button id="cancelButton" class="addon-btn">Отмена</button>
+      <button id="setParentButton" class="addon-btn-primary" disabled>Установить родителя</button>
+    </div>
+  </div>
+  <script src="popup_v2.js"></script>
+</body>
+</html>
