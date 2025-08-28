@@ -22,7 +22,7 @@ const setParentButton = document.getElementById('setParentButton');
 const cancelButton = document.getElementById('cancelButton');
 const contentDiv = document.getElementById('content');
 
-let currentCard = null;
+let currentCardId = null;
 
 // Функция-помощник для вывода статуса
 function setStatus(message, isError = false) {
@@ -36,45 +36,40 @@ function setStatus(message, isError = false) {
 // Главная функция
 iframe.render(async () => {
   try {
-    setStatus('1/6: Получение данных о текущей карточке...');
-    currentCard = await iframe.getCard();
-    if (!currentCard || !currentCard.id) {
-        setStatus(`Ошибка: Не удалось получить данные о карточке.`, true);
+    setStatus('1/5: Запрос начального контекста...');
+    const context = await iframe.getInitialContext();
+    if (!context || !context.card_id || !context.board_id) {
+        setStatus(`Ошибка: Не удалось получить контекст (card_id, board_id).`, true);
         return;
     }
-    setStatus(`2/6: ID карточки получен: ${currentCard.id}`);
+    currentCardId = context.card_id;
+    const boardId = context.board_id;
+    setStatus(`2/5: ID карточки ${currentCardId}, ID доски ${boardId}. Запрос деталей доски...`);
 
-    setStatus('3/6: Получение данных о доске...');
-    const board = await iframe.getBoard();
-     if (!board || !board.id) {
-        setStatus(`Ошибка: Не удалось получить данные о доске.`, true);
-        return;
-    }
-    setStatus(`4/6: ID доски получен: ${board.id}. Запрос деталей доски...`);
-
-    const boardDetails = await iframe.boards.get(board.id);
+    const boardDetails = await iframe.boards.get(boardId);
     if (!boardDetails || !boardDetails.space_id) {
         setStatus(`Ошибка: Не удалось получить ID пространства из данных доски.`, true);
         return;
     }
     const currentSpaceId = boardDetails.space_id;
-    setStatus(`5/6: ID пространства получен: ${currentSpaceId}. Запрос полей...`);
+    setStatus(`3/5: ID пространства получен: ${currentSpaceId}. Запрос полей карточки...`);
     
     const cardProps = await iframe.getCardProperties('customProperties');
     const innField = cardProps.find(prop => prop.property.id === innFieldId);
     if (!innField || !innField.value) {
-      setStatus(`Ошибка: Поле ИНН (ID ${innFieldId}) не найдено или пустое.`, true);
+      setStatus(`Ошибка: Поле ИНН (ID ${innFieldId}) не найдено или пустое в этой карточке.`, true);
       return;
     }
     const innValue = innField.value;
     innInput.value = innValue;
+    setStatus(`4/5: ИНН найден: ${innValue}.`);
     
     const searchSpaceId = spaceMap[currentSpaceId];
     if (!searchSpaceId) {
-      setStatus(`Ошибка: Текущее пространство (${currentSpaceId}) не настроено для поиска.`, true);
+      setStatus(`Ошибка: Текущее пространство (${currentSpaceId}) не настроено для поиска в spaceMap.`, true);
       return;
     }
-    setStatus(`6/6: ИНН: ${innValue}. Ищем в пространстве ${searchSpaceId}.`);
+    setStatus(`5/5: Начинаем поиск в пространстве ${searchSpaceId}...`);
     
     statusInfo.style.display = 'none';
     mainUI.style.display = 'block';
@@ -108,7 +103,7 @@ iframe.render(async () => {
 
   } catch (error) {
     setStatus(`Критическая ошибка: ${error.message}`, true);
-    console.error('Ошибка при инициализации:', error);
+    console.error('Критическая ошибка:', error);
   }
 });
 
@@ -119,7 +114,7 @@ setParentButton.addEventListener('click', async () => {
 
   const parentCardId = parseInt(selectedRadio.value, 10);
   try {
-    await iframe.cards.update(currentCard.id, { parent_id: parentCardId });
+    await iframe.cards.update(currentCardId, { parent_id: parentCardId });
     iframe.showSnackbar('Связь с договором установлена!', 'success');
     iframe.closePopup();
   } catch (error) {
