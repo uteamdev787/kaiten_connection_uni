@@ -10,7 +10,6 @@ const spaceMap = {
 const innFieldId = 415447;
 // --- КОНЕЦ КОНФИГУРАЦИИ ---
 
-// Получаем элементы DOM
 const statusInfo = document.getElementById('status-info');
 const mainUI = document.getElementById('main-ui');
 const innInput = document.getElementById('innInput');
@@ -24,27 +23,26 @@ const contentDiv = document.getElementById('content');
 
 let currentCardId = null;
 
-// Функция-помощник для вывода статуса
 function setStatus(message, isError = false) {
   console.log(message);
   statusInfo.textContent = message;
-  if (isError) {
-    statusInfo.style.color = 'red';
-  }
+  if (isError) statusInfo.style.color = 'red';
 }
 
-// Главная функция
 iframe.render(async () => {
   try {
-    setStatus('1/5: Запрос начального контекста...');
-    const context = await iframe.getInitialContext();
-    if (!context || !context.card_id || !context.board_id) {
-        setStatus(`Ошибка: Не удалось получить контекст (card_id, board_id).`, true);
+    // ===== ИЗМЕНЕНИЕ ЗДЕСЬ =====
+    // Получаем данные, переданные из client.js, с помощью iframe.getArgs()
+    setStatus('1/5: Получение аргументов (card_id, board_id)...');
+    const args = await iframe.getArgs();
+    if (!args || !args.card_id || !args.board_id) {
+        setStatus(`Ошибка: Не удалось получить card_id и board_id из аргументов.`, true);
         return;
     }
-    currentCardId = context.card_id;
-    const boardId = context.board_id;
+    currentCardId = args.card_id;
+    const boardId = args.board_id;
     setStatus(`2/5: ID карточки ${currentCardId}, ID доски ${boardId}. Запрос деталей доски...`);
+    // ===========================
 
     const boardDetails = await iframe.boards.get(boardId);
     if (!boardDetails || !boardDetails.space_id) {
@@ -52,12 +50,12 @@ iframe.render(async () => {
         return;
     }
     const currentSpaceId = boardDetails.space_id;
-    setStatus(`3/5: ID пространства получен: ${currentSpaceId}. Запрос полей карточки...`);
+    setStatus(`3/5: ID пространства: ${currentSpaceId}. Запрос полей карточки...`);
     
     const cardProps = await iframe.getCardProperties('customProperties');
     const innField = cardProps.find(prop => prop.property.id === innFieldId);
     if (!innField || !innField.value) {
-      setStatus(`Ошибка: Поле ИНН (ID ${innFieldId}) не найдено или пустое в этой карточке.`, true);
+      setStatus(`Ошибка: Поле ИНН (ID ${innFieldId}) не найдено или пустое.`, true);
       return;
     }
     const innValue = innField.value;
@@ -66,7 +64,7 @@ iframe.render(async () => {
     
     const searchSpaceId = spaceMap[currentSpaceId];
     if (!searchSpaceId) {
-      setStatus(`Ошибка: Текущее пространство (${currentSpaceId}) не настроено для поиска в spaceMap.`, true);
+      setStatus(`Ошибка: Пространство (${currentSpaceId}) не настроено для поиска.`, true);
       return;
     }
     setStatus(`5/5: Начинаем поиск в пространстве ${searchSpaceId}...`);
@@ -95,9 +93,7 @@ iframe.render(async () => {
         choicesContainer.appendChild(label);
       });
       resultsBlock.style.display = 'block';
-      choicesContainer.addEventListener('change', () => {
-        setParentButton.disabled = false;
-      });
+      choicesContainer.addEventListener('change', () => setParentButton.disabled = false);
     }
     iframe.fitSize(contentDiv);
 
@@ -107,11 +103,9 @@ iframe.render(async () => {
   }
 });
 
-// Обработчики кнопок
 setParentButton.addEventListener('click', async () => {
   const selectedRadio = document.querySelector('input[name="parentCard"]:checked');
   if (!selectedRadio) return;
-
   const parentCardId = parseInt(selectedRadio.value, 10);
   try {
     await iframe.cards.update(currentCardId, { parent_id: parentCardId });
@@ -123,6 +117,4 @@ setParentButton.addEventListener('click', async () => {
   }
 });
 
-cancelButton.addEventListener('click', () => {
-  iframe.closePopup();
-});
+cancelButton.addEventListener('click', () => iframe.closePopup());```
