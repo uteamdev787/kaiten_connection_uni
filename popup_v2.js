@@ -117,4 +117,4 @@ setParentButton.addEventListener('click', async () => {
   }
 });
 
-cancelButton.addEventListener('click', () => iframe.closePopup());```
+cancelButton.addEventListener('click', () => iframe.closePopup());
