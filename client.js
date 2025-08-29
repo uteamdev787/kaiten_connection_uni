@@ -14,18 +14,51 @@ Addon.initialize({
       text: '🔗 Связать по ИНН',
       callback: async (buttonContext) => {
         try {
-          // 1. Получаем API объект
-          const api = buttonContext.api || buttonContext;
+          console.log('Button context:', buttonContext);
+          console.log('Available methods:', Object.keys(buttonContext));
           
-          // 2. Получаем текущую карточку
-          const currentCard = await api.cards.get(buttonContext.card_id);
+          // 1. Получаем данные текущей карточки
+          let currentCard;
+          try {
+            // Попробуем разные способы получить карточку
+            if (buttonContext.getCard) {
+              currentCard = await buttonContext.getCard();
+            } else if (buttonContext.card) {
+              currentCard = buttonContext.card;
+            } else {
+              // Используем прямой API запрос
+              currentCard = await buttonContext.request({
+                method: 'GET',
+                url: `/cards/${buttonContext.card_id}`
+              });
+            }
+          } catch (e) {
+            console.log('Ошибка получения карточки:', e);
+            throw new Error('Не удалось получить данные текущей карточки');
+          }
+          
           if (!currentCard) {
             throw new Error('Не удалось получить данные текущей карточки');
           }
           
-          // 3. Получаем значение ИНН из текущей карточки
-          const innField = currentCard.custom_fields.find(field => field.id === innFieldId);
-          if (!innField || !innField.value) {
+          console.log('Current card:', currentCard);
+          
+          // 2. Получаем значение ИНН из текущей карточки
+          let innField = null;
+          let innValue = null;
+          
+          // Ищем поле ИНН в разных местах
+          if (currentCard.custom_fields) {
+            innField = currentCard.custom_fields.find(field => field.id === innFieldId);
+          } else if (currentCard.fields) {
+            innField = currentCard.fields.find(field => field.id === innFieldId);
+          }
+          
+          if (innField) {
+            innValue = innField.value;
+          }
+          
+          if (!innValue) {
             buttonContext.showNotification({
               type: 'warning',
               message: 'Поле ИНН не заполнено в текущей карточке.'
@@ -33,8 +66,21 @@ Addon.initialize({
             return;
           }
           
-          const innValue = innField.value;
-          const currentSpaceId = currentCard.space.id;
+          console.log('INN value:', innValue);
+          
+          // 3. Определяем пространство
+          let currentSpaceId = null;
+          if (currentCard.space && currentCard.space.id) {
+            currentSpaceId = currentCard.space.id;
+          } else if (currentCard.space_id) {
+            currentSpaceId = currentCard.space_id;
+          }
+          
+          if (!currentSpaceId) {
+            throw new Error('Не удалось определить ID пространства текущей карточки');
+          }
+          
+          console.log('Current space ID:', currentSpaceId);
           
           // 4. Проверяем, настроено ли текущее пространство
           const searchSpaceId = spaceMap[currentSpaceId];
@@ -46,19 +92,44 @@ Addon.initialize({
             return;
           }
           
+          console.log('Search space ID:', searchSpaceId);
+          
           // 5. Ищем карточки с таким же ИНН в целевом пространстве
           buttonContext.showNotification({
             type: 'info',
             message: `Ищем карточки с ИНН ${innValue} в пространстве ${searchSpaceId}...`
           });
           
-          const foundCards = await api.cards.find({
-            space_id: searchSpaceId,
-            custom_fields: [{
-              field_id: innFieldId,
-              value: innValue
-            }]
-          });
+          let foundCards;
+          try {
+            // Пробуем разные способы поиска
+            if (buttonContext.findCards) {
+              foundCards = await buttonContext.findCards({
+                space_id: searchSpaceId,
+                custom_fields: [{
+                  field_id: innFieldId,
+                  value: innValue
+                }]
+              });
+            } else {
+              // Используем прямой API запрос
+              const params = new URLSearchParams({
+                space_id: searchSpaceId,
+                'custom_fields[0][field_id]': innFieldId,
+                'custom_fields[0][value]': innValue
+              });
+              
+              foundCards = await buttonContext.request({
+                method: 'GET',
+                url: `/cards?${params.toString()}`
+              });
+            }
+          } catch (e) {
+            console.log('Ошибка поиска карточек:', e);
+            throw new Error(`Ошибка поиска карточек: ${e.message}`);
+          }
+          
+          console.log('Found cards:', foundCards);
           
           // 6. Обрабатываем результаты
           if (!foundCards || foundCards.length === 0) {
@@ -82,9 +153,25 @@ Addon.initialize({
               return;
             }
             
-            await api.cards.update(currentCard.id, {
-              parent_id: parentCard.id
-            });
+            // Обновляем карточку
+            try {
+              if (buttonContext.updateCard) {
+                await buttonContext.updateCard(currentCard.id, {
+                  parent_id: parentCard.id
+                });
+              } else {
+                await buttonContext.request({
+                  method: 'PUT',
+                  url: `/cards/${currentCard.id}`,
+                  data: {
+                    parent_id: parentCard.id
+                  }
+                });
+              }
+            } catch (e) {
+              console.log('Ошибка обновления карточки:', e);
+              throw new Error(`Ошибка установки родительской связи: ${e.message}`);
+            }
             
             buttonContext.showNotification({
               type: 'success',
@@ -110,17 +197,43 @@ Addon.initialize({
           }
           
           // 9. Показываем модальное окно с выбором
-          const selectedChoice = await buttonContext.showChoice({
-            title: `Найдено ${foundCards.length} карточек с ИНН ${innValue}`,
-            message: 'Выберите карточку для установки как родительской:',
-            choices: choices
-          });
+          let selectedChoice;
+          try {
+            selectedChoice = await buttonContext.showChoice({
+              title: `Найдено ${foundCards.length} карточек с ИНН ${innValue}`,
+              message: 'Выберите карточку для установки как родительской:',
+              choices: choices
+            });
+          } catch (e) {
+            console.log('Ошибка показа выбора:', e);
+            // Если showChoice не работает, используем showNotification для информирования
+            buttonContext.showNotification({
+              type: 'info',
+              message: `Найдено ${foundCards.length} карточек с ИНН ${innValue}. Установите родительскую связь вручную.`
+            });
+            return;
+          }
           
           // 10. Если пользователь выбрал карточку - устанавливаем связь
           if (selectedChoice) {
-            await api.cards.update(currentCard.id, {
-              parent_id: selectedChoice.id
-            });
+            try {
+              if (buttonContext.updateCard) {
+                await buttonContext.updateCard(currentCard.id, {
+                  parent_id: selectedChoice.id
+                });
+              } else {
+                await buttonContext.request({
+                  method: 'PUT',
+                  url: `/cards/${currentCard.id}`,
+                  data: {
+                    parent_id: selectedChoice.id
+                  }
+                });
+              }
+            } catch (e) {
+              console.log('Ошибка обновления карточки:', e);
+              throw new Error(`Ошибка установки родительской связи: ${e.message}`);
+            }
             
             const parentCard = foundCards.find(card => card.id === selectedChoice.id);
             buttonContext.showNotification({
