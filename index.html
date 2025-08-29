@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Связь с договором</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h2>Связывание с договором по ИНН</h2>
+        <div class="form-group">
+            <label for="inn-input">ИНН Партнера:</label>
+            <input type="text" id="inn-input" placeholder="ИНН из карточки счета..." readonly>
+        </div>
+        <button id="search-btn">Найти договор</button>
+        <div id="loader" class="loader" style="display: none;"></div>
+        <div id="results-container"></div>
+    </div>
+
+    <!-- Подключение Kaiten Web SDK -->
+    <script src="https://app.kaiten.ru/web-sdk/v1.js"></script>
+    <!-- Подключение вашего скрипта -->
+    <script src="script.js"></script>
+</body>
+</html>
