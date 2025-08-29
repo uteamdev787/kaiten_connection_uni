@@ -3,6 +3,14 @@
   "baseUrl": "https://uteamdev787.github.io/kaiten_connection_uni/",
   "entrypoints": [
     {
+      "type": "card-button",
+      "label": "🔗 Связать с договором",
+      "url": "./public/views/link-contract.html",
+      "locations": {
+        "spaceIds": [517319]
+      }
+    },
+    {
       "type": "background",
       "url": "./index.html"
     }
