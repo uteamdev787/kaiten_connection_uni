@@ -1,127 +1,148 @@
-// Инициализация аддона
+// Инициализация аддона для связывания карточек по ИНН
 kaiten.init((api) => {
 
-  // Карта связей: ID пространства, где вводят ИНН -> ID пространства, где нужно искать
+  // Карта связей: ID пространства, где ищем -> ID пространства, где связываем
   const spaceMap = {
-    517319: 517325,
-    517314: 532009,
-    517324: 532011
+    517319: 517325, // В пространстве 517319 ищем карточки в 517325
+    517314: 532009, // В пространстве 517314 ищем карточки в 532009  
+    517324: 532011  // В пространстве 517324 ищем карточки в 532011
   };
 
   // ID кастомного поля для ИНН
   const innFieldId = 415447;
 
-  // Подписываемся на событие изменения поля в карточке
-  kaiten.on('card.field_changed', (payload) => {
-    console.log('=== СОБЫТИЕ ИЗМЕНЕНИЯ ПОЛЯ ===');
-    console.log('Payload:', payload);
-    
-    // 1. Проверяем, что изменилось именно наше поле ИНН
-    const changedFieldId = payload.field?.id || payload.property_id || payload.field_id;
-    
-    if (changedFieldId !== innFieldId || !payload.value) {
-      return; // Если нет, ничего не делаем
-    }
+  // Глобальная переменная для хранения найденных карточек
+  let lastFoundCards = [];
+  let lastCurrentCard = null;
 
-    const currentCard = payload.card;
-    const innValue = payload.value;
+  // Функция поиска и связывания карточек
+  async function findAndLinkCards(currentCard, innValue, showUI = true) {
+    console.log('=== ПОИСК КАРТОЧЕК ПО ИНН ===');
+    console.log('Current card:', currentCard);
+    console.log('INN value:', innValue);
 
-    // 2. Проверяем, есть ли текущее пространство в нашей карте связей
-    const currentSpaceId = currentCard.space.id;
+    // Определяем пространство для поиска
+    const currentSpaceId = currentCard.space?.id || currentCard.space_id;
     const searchSpaceId = spaceMap[currentSpaceId];
     
     if (!searchSpaceId) {
-      return; // Если пространство не участвует в логике, выходим
+      if (showUI) {
+        kaiten.ui.showNotification({
+          type: 'info',
+          message: `Пространство ${currentSpaceId} не настроено для поиска связанных карточек.`
+        });
+      }
+      return;
     }
 
-    // 3. Ищем карточки в целевом пространстве с таким же ИНН
-    api.cards.find({
-      space_id: searchSpaceId,
-      custom_fields: [{
-        field_id: innFieldId,
-        value: innValue
-      }]
-    }).then(foundCards => {
-      
-      // Если ничего не найдено, уведомляем пользователя
-      if (!foundCards || foundCards.length === 0) {
-        kaiten.ui.showNotification({
-          type: 'info',
-          message: `Карточки с ИНН ${innValue} не найдены в пространстве ${searchSpaceId}.`
-        });
-        return;
-      }
+    try {
+      // Ищем карточки с таким же ИНН в целевом пространстве
+      const foundCards = await api.cards.find({
+        space_id: searchSpaceId,
+        custom_fields: [{
+          field_id: innFieldId,
+          value: innValue
+        }]
+      });
 
-      // 4. Исключаем текущую карточку
+      console.log('Found cards:', foundCards);
+
+      // Исключаем текущую карточку
       const validCards = foundCards.filter(card => card.id !== currentCard.id);
       
+      // Сохраняем результаты глобально
+      lastFoundCards = validCards;
+      lastCurrentCard = currentCard;
+
       if (validCards.length === 0) {
-        kaiten.ui.showNotification({
-          type: 'info',
-          message: 'Найдена только текущая карточка.'
-        });
-        return;
-      }
-
-      // 5. Если найдена одна карточка - сразу связываем
-      if (validCards.length === 1) {
-        const parentCard = validCards[0];
-        
-        api.cards.update(currentCard.id, {
-          parent_id: parentCard.id
-        }).then(() => {
+        if (showUI) {
           kaiten.ui.showNotification({
-            type: 'success',
-            message: `Карточка #${parentCard.id} "${parentCard.title}" установлена как родительская.`
+            type: 'info',
+            message: `Карточки с ИНН ${innValue} не найдены в пространстве ${searchSpaceId}.`
           });
-        }).catch(error => {
-          kaiten.ui.showNotification({
-            type: 'error',
-            message: 'Не удалось установить родительскую карточку.'
-          });
-        });
-        return;
-      }
-
-      // 6. Если найдено несколько - показываем выбор
-      const choices = validCards.map(card => ({
-        id: card.id,
-        label: `#${card.id} - ${card.title}`
-      }));
-      
-      kaiten.ui.showChoice({
-        title: `Найдено ${validCards.length} карточек с ИНН ${innValue}`,
-        message: 'Выберите карточку, чтобы установить ее как родительскую:',
-        choices: choices
-      }).then(selectedChoice => {
-        
-        if (!selectedChoice) {
-          return;
         }
+        return;
+      }
 
-        const parentCardId = selectedChoice.id;
+      if (showUI) {
+        // Показываем результаты через выбор или автосвязывание
+        if (validCards.length === 1) {
+          // Автоматически связываем единственную карточку
+          const parentCard = validCards[0];
+          await linkCards(currentCard.id, parentCard.id, parentCard.title);
+        } else {
+          // Показываем выбор через модальное окно
+          const choices = validCards.map(card => ({
+            id: card.id,
+            label: `#${card.id} - ${card.title}`
+          }));
 
-        // 7. Устанавливаем родительскую связь
-        api.cards.update(currentCard.id, {
-          parent_id: parentCardId
-        }).then(() => {
-          const parentCard = validCards.find(card => card.id === parentCardId);
-          kaiten.ui.showNotification({
-            type: 'success',
-            message: `Карточка #${parentCardId} "${parentCard.title}" установлена как родительская.`
+          const selectedChoice = await kaiten.ui.showChoice({
+            title: `Найдено ${validCards.length} карточек с ИНН ${innValue}`,
+            message: 'Выберите карточку для установки связи:',
+            choices: choices
           });
-        }).catch(error => {
-          kaiten.ui.showNotification({
-            type: 'error',
-            message: 'Не удалось установить родительскую карточку.'
-          });
+
+          if (selectedChoice) {
+            const parentCard = validCards.find(card => card.id === selectedChoice.id);
+            await linkCards(currentCard.id, parentCard.id, parentCard.title);
+          }
+        }
+      }
+
+      return validCards;
+
+    } catch (error) {
+      console.error('Ошибка при поиске карточек:', error);
+      if (showUI) {
+        kaiten.ui.showNotification({
+          type: 'error',
+          message: 'Произошла ошибка при поиске карточек.'
         });
+      }
+    }
+  }
+
+  // Функция установки родительской связи
+  async function linkCards(childId, parentId, parentTitle) {
+    try {
+      await api.cards.update(childId, {
+        parent_id: parentId
       });
-    }).catch(error => {
+
+      kaiten.ui.showNotification({
+        type: 'success',
+        message: `Карточка #${parentId} "${parentTitle}" установлена как родительская.`
+      });
+    } catch (error) {
+      console.error('Ошибка при установке связи:', error);
       kaiten.ui.showNotification({
         type: 'error',
-        message: 'Произошла ошибка при поиске карточек.'
+        message: 'Не удалось установить родительскую связь.'
       });
-    });
+    }
+  }
+
+  // Автоматическое срабатывание при изменении поля ИНН
+  kaiten.on('card.field_changed', (payload) => {
+    console.log('=== СОБЫТИЕ ИЗМЕНЕНИЯ ПОЛЯ ===');
+    
+    // Проверяем, что изменилось именно поле ИНН
+    const changedFieldId = payload.field?.id || payload.property_id || payload.field_id;
+    
+    if (changedFieldId !== innFieldId || !payload.value) {
+      return;
+    }
+
+    findAndLinkCards(payload.card, payload.value, true);
   });
+
+  // API для вызова из кнопки
+  window.kaitenConnectByINN = {
+    searchCards: findAndLinkCards,
+    getLastResults: () => ({ cards: lastFoundCards, currentCard: lastCurrentCard }),
+    linkCard: linkCards
+  };
+
+  console.log('=== АДДОН СВЯЗЫВАНИЯ ПО ИНН ИНИЦИАЛИЗИРОВАН ===');
 });
