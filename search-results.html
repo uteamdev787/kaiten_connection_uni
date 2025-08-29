@@ -1,1 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://files.kaiten.ru/web-sdk/v1.min.js"></script>
+  <link href="https://files.kaiten.ru/web-sdk/v1.min.css" rel="stylesheet" />
+  <style>
+    .loader {
+      text-align: center;
+      padding: 20px;
+    }
+    .loader-spinner {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 3px solid var(--addon-background-level2);
+      border-radius: 50%;
+      border-top-color: var(--addon-primary-color);
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .search-results {
+      display: none;
+    }
+    .card-item {
+      display: flex;
+      align-items: center;
+      padding: 12px;
+      margin-bottom: 8px;
+      background: var(--addon-background-level2);
+      border-radius: 6px;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+    .card-item:hover {
+      background: var(--addon-background-level3);
+    }
+    .card-item.selected {
+      border-color: var(--addon-primary-color);
+      background: var(--addon-background-level3);
+    }
+    .card-checkbox {
+      margin-right: 12px;
+    }
+    .card-info h4 {
+      margin: 0 0 4px 0;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .card-meta {
+      font-size: 12px;
+      color: var(--addon-text-secondary-color);
+    }
+    .no-results {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--addon-text-secondary-color);
+    }
+    .inn-info {
+      background: var(--addon-background-level2);
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="searchContent" style="padding: 16px;">
+    <!-- Информация о поиске -->
+    <div id="searchInfo" class="inn-info">
+      <div style="font-size: 12px; color: var(--addon-text-secondary-color); margin-bottom: 4px;">
+        Поиск карточек с ИНН:
+      </div>
+      <div id="innDisplay" style="font-weight: 500; font-size: 16px;">-</div>
+    </div>
 
+    <!-- Индикатор загрузки -->
+    <div id="loader" class="loader">
+      <div class="loader-spinner"></div>
+      <div style="margin-top: 12px;">Поиск карточек...</div>
+    </div>
+
+    <!-- Результаты поиска -->
+    <div id="searchResults" class="search-results">
+      <div style="margin-bottom: 12px;">
+        <strong>Найденные карточки:</strong>
+        <span id="resultsCount" style="color: var(--addon-text-secondary-color);"></span>
+      </div>
+      <div id="cardsList"></div>
+    </div>
+
+    <!-- Сообщение о пустых результатах -->
+    <div id="noResults" class="no-results" style="display: none;">
+      <div style="font-size: 48px; margin-bottom: 12px;">🔍</div>
+      <div>Карточки с указанным ИНН не найдены</div>
+    </div>
+
+    <!-- Кнопки управления -->
+    <div style="display: flex; justify-content: space-between; gap: 8px; margin-top: 16px;">
+      <button id="cancelButton" class="addon-btn">Отмена</button>
+      <div style="display: flex; gap: 8px;">
+        <button id="selectAllButton" class="addon-btn" style="display: none;">Выбрать все</button>
+        <button id="linkButton" class="addon-btn-primary" disabled>Связать выбранные</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="search-results.js"></script>
+</body>
+</html>
