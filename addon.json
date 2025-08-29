@@ -1,0 +1,18 @@
+{
+  "title": "Связывание с договором по ИНН",
+  "baseUrl": "https://<ВАШ_ЛОГИН_НА_GITHUB>.github.io/<НАЗВАНИЕ_РЕПОЗИТОРИЯ>/",
+  "entrypoints": [
+    {
+      "type": "card-button",
+      "label": "Связать с договором",
+      "url": "./index.html",
+      "locations": {
+        "spaceIds": [517319]
+      }
+    }
+  ],
+  "permissions": [
+    "card:read",
+    "card:write"
+  ]
+}
