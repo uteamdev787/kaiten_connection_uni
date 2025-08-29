@@ -14,9 +14,7 @@ Addon.initialize({
       text: '🔗 Связать по ИНН',
       callback: async (buttonContext) => {
         try {
-          console.log('=== ОТЛАДОЧНАЯ ИНФОРМАЦИЯ ===');
-          console.log('Button context:', buttonContext);
-          console.log('Available methods:', Object.keys(buttonContext));
+          console.log('=== НАЧАЛО РАБОТЫ АДДОНА ===');
           
           // Функция для уведомлений
           const showMessage = (message, type = 'info') => {
@@ -28,106 +26,28 @@ Addon.initialize({
             }
           };
           
-          // 1. Получаем контекст
-          let context;
-          try {
-            context = await buttonContext.getContext();
-            console.log('Context:', context);
-          } catch (e) {
-            console.error('Ошибка получения контекста:', e);
-            showMessage('Не удалось получить контекст аддона', 'error');
-            return;
-          }
+          // 1. Получаем контекст и данные карточки
+          const context = await buttonContext.getContext();
+          const cardId = context.card_id;
+          const currentCard = await buttonContext.getCard();
           
-          const cardId = context.card_id || buttonContext.card_id;
           console.log('Card ID:', cardId);
+          console.log('Current card properties:', currentCard.properties);
           
-          if (!cardId) {
-            showMessage('Не удалось получить ID карточки', 'error');
-            return;
-          }
+          // 2. Получаем значение ИНН (правильный способ)
+          const innKey = `id_${innFieldId}`;
+          const innValue = currentCard.properties && currentCard.properties[innKey];
           
-          // 2. Получаем данные карточки
-          let currentCard;
-          try {
-            currentCard = await buttonContext.getCard();
-            console.log('=== ПОЛНАЯ СТРУКТУРА КАРТОЧКИ ===');
-            console.log('Current card:', JSON.stringify(currentCard, null, 2));
-          } catch (e) {
-            console.error('Ошибка получения карточки:', e);
-            showMessage('Не удалось получить данные карточки', 'error');
-            return;
-          }
-          
-          if (!currentCard) {
-            showMessage('Данные карточки не получены', 'error');
-            return;
-          }
-          
-          // 3. Детальный поиск поля ИНН
-          console.log('=== ПОИСК ПОЛЯ ИНН ===');
-          let innValue = null;
-          
-          // Проверяем разные возможные места
-          if (currentCard.custom_fields) {
-            console.log('custom_fields:', JSON.stringify(currentCard.custom_fields, null, 2));
-            const field = currentCard.custom_fields.find(f => f.id === innFieldId || f.field_id === innFieldId);
-            if (field) {
-              innValue = field.value;
-              console.log('ИНН найден в custom_fields:', field);
-            }
-          }
-          
-          if (!innValue && currentCard.fields) {
-            console.log('fields:', JSON.stringify(currentCard.fields, null, 2));
-            const field = currentCard.fields.find(f => f.id === innFieldId || f.field_id === innFieldId);
-            if (field) {
-              innValue = field.value;
-              console.log('ИНН найден в fields:', field);
-            }
-          }
-          
-          if (!innValue && currentCard.properties) {
-            console.log('properties:', JSON.stringify(currentCard.properties, null, 2));
-            const field = currentCard.properties.find(f => f.id === innFieldId || f.field_id === innFieldId);
-            if (field) {
-              innValue = field.value;
-              console.log('ИНН найден в properties:', field);
-            }
-          }
-          
-          // Попробуем через getCardProperties
-          if (!innValue) {
-            try {
-              console.log('Пробуем getCardProperties...');
-              const cardProps = await buttonContext.getCardProperties('customProperties');
-              console.log('Card properties:', JSON.stringify(cardProps, null, 2));
-              
-              const innProp = cardProps.find(prop => prop.property && prop.property.id === innFieldId);
-              if (innProp) {
-                innValue = innProp.value;
-                console.log('ИНН найден через getCardProperties:', innProp);
-              }
-            } catch (e) {
-              console.error('Ошибка getCardProperties:', e);
-            }
-          }
-          
-          console.log('Итоговое значение ИНН:', innValue);
+          console.log('INN key:', innKey);
+          console.log('INN value:', innValue);
           
           if (!innValue) {
-            showMessage(`Поле ИНН (ID: ${innFieldId}) не найдено или пустое в текущей карточке`, 'warning');
+            showMessage(`Поле ИНН (ID: ${innFieldId}) не заполнено в текущей карточке`, 'warning');
             return;
           }
           
-          // 4. Определяем пространство
-          let currentSpaceId = null;
-          if (currentCard.space && currentCard.space.id) {
-            currentSpaceId = currentCard.space.id;
-          } else if (currentCard.space_id) {
-            currentSpaceId = currentCard.space_id;
-          }
-          
+          // 3. Определяем пространство
+          const currentSpaceId = currentCard.space?.id || currentCard.space_id;
           console.log('Current space ID:', currentSpaceId);
           
           if (!currentSpaceId) {
@@ -135,7 +55,7 @@ Addon.initialize({
             return;
           }
           
-          // 5. Проверяем настройку пространства
+          // 4. Проверяем настройку пространства
           const searchSpaceId = spaceMap[currentSpaceId];
           if (!searchSpaceId) {
             showMessage(`Пространство ${currentSpaceId} не настроено для поиска связанных карточек`, 'info');
@@ -144,7 +64,7 @@ Addon.initialize({
           
           console.log('Search space ID:', searchSpaceId);
           
-          // 6. Ищем карточки
+          // 5. Ищем карточки с таким же ИНН
           showMessage(`Ищем карточки с ИНН ${innValue} в пространстве ${searchSpaceId}...`, 'info');
           
           let foundCards;
@@ -169,7 +89,7 @@ Addon.initialize({
             return;
           }
           
-          // 7. Обработка результатов
+          // 6. Обработка результатов поиска
           if (!foundCards || foundCards.length === 0) {
             showMessage(`Карточки с ИНН ${innValue} не найдены в пространстве ${searchSpaceId}`, 'info');
             return;
@@ -177,7 +97,7 @@ Addon.initialize({
           
           console.log(`Найдено ${foundCards.length} карточек`);
           
-          // 8. Фильтруем карточки (исключаем текущую)
+          // 7. Исключаем текущую карточку из результатов
           const validCards = foundCards.filter(card => card.id !== currentCard.id);
           
           if (validCards.length === 0) {
@@ -185,7 +105,9 @@ Addon.initialize({
             return;
           }
           
-          // 9. Если одна карточка - сразу связываем
+          console.log(`Доступно для связывания: ${validCards.length} карточек`);
+          
+          // 8. Если найдена одна карточка - сразу связываем
           if (validCards.length === 1) {
             const parentCard = validCards[0];
             console.log('Автоматическое связывание с карточкой:', parentCard);
@@ -207,12 +129,12 @@ Addon.initialize({
             return;
           }
           
-          // 10. Если несколько карточек - показываем выбор
-          const cardsList = validCards.map(card => `#${card.id} - ${card.title}`).join('\n');
+          // 9. Если найдено несколько карточек - показываем выбор
+          const cardsList = validCards.map((card, index) => `${index + 1}. #${card.id} - ${card.title}`).join('\n');
           console.log('Карточки для выбора:', cardsList);
           
           const userChoice = prompt(
-            `Найдено ${validCards.length} карточек с ИНН ${innValue}:\n\n${cardsList}\n\nВведите ID карточки (только цифры) для установки как родительской, или отмените:`
+            `Найдено ${validCards.length} карточек с ИНН ${innValue}:\n\n${cardsList}\n\nВведите номер карточки (1-${validCards.length}) или ID карточки для установки как родительской, или отмените:`
           );
           
           if (!userChoice) {
@@ -220,16 +142,27 @@ Addon.initialize({
             return;
           }
           
-          const selectedCardId = parseInt(userChoice.trim(), 10);
-          const selectedCard = validCards.find(card => card.id === selectedCardId);
+          let selectedCard;
+          const choice = userChoice.trim();
+          
+          // Пробуем интерпретировать как номер в списке (1, 2, 3...)
+          const choiceNumber = parseInt(choice, 10);
+          if (choiceNumber >= 1 && choiceNumber <= validCards.length) {
+            selectedCard = validCards[choiceNumber - 1];
+          } else {
+            // Пробуем интерпретировать как ID карточки
+            selectedCard = validCards.find(card => card.id === choiceNumber);
+          }
           
           if (!selectedCard) {
-            showMessage(`Карточка с ID ${selectedCardId} не найдена среди доступных`, 'error');
+            showMessage(`Неверный выбор: "${choice}". Введите номер от 1 до ${validCards.length} или ID карточки`, 'error');
             return;
           }
           
-          // 11. Устанавливаем связь
+          // 10. Устанавливаем родительскую связь
           try {
+            console.log('Устанавливаем связь с карточкой:', selectedCard);
+            
             await buttonContext.request({
               method: 'PUT',
               url: `/cards/${currentCard.id}`,
