@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://files.kaiten.ru/web-sdk/v1.min.js"></script>
+  <link href="https://files.kaiten.ru/web-sdk/v1.min.css" rel="stylesheet" />
+  <style>
+    .inn-display {
+      background: var(--addon-background-level2);
+      padding: 16px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .instructions {
+      background: var(--addon-background-level2);
+      padding: 16px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .space-info {
+      background: var(--addon-primary-color);
+      color: white;
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      text-align: center;
+      font-weight: 500;
+    }
+    .input-section {
+      margin-bottom: 16px;
+    }
+    .card-link {
+      display: block;
+      padding: 12px;
+      margin-bottom: 8px;
+      background: var(--addon-background-level2);
+      border: 2px solid var(--addon-divider);
+      border-radius: 6px;
+      text-decoration: none;
+      color: var(--addon-text-primary-color);
+      transition: all 0.2s;
+    }
+    .card-link:hover {
+      border-color: var(--addon-primary-color);
+      background: var(--addon-background-level3);
+    }
+    .card-title {
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .card-meta {
+      font-size: 12px;
+      color: var(--addon-text-secondary-color);
+    }
+  </style>
+</head>
+<body>
+  <div id="searchContent" style="padding: 16px;">
+    <!-- Информация о текущем ИНН -->
+    <div class="inn-display">
+      <div style="font-size: 12px; color: var(--addon-text-secondary-color); margin-bottom: 4px;">
+        ИНН в текущей карточке:
+      </div>
+      <div id="innDisplay" style="font-size: 18px; font-weight: 500;">-</div>
+    </div>
+
+    <!-- Информация о пространстве для поиска -->
+    <div id="spaceInfo" class="space-info" style="display: none;">
+      Поиск в пространстве: <span id="targetSpace">-</span>
+    </div>
+
+    <!-- Инструкции -->
+    <div class="instructions">
+      <div style="font-weight: 500; margin-bottom: 8px;">📋 Инструкция по поиску:</div>
+      <ol style="margin: 0; padding-left: 20px;">
+        <li>Перейдите в пространство <strong id="searchSpaceId">-</strong></li>
+        <li>Найдите карточки с ИНН <strong id="searchInn">-</strong></li>
+        <li>Скопируйте ID нужной карточки (число после #)</li>
+        <li>Введите ID в поле ниже и нажмите "Связать"</li>
+      </ol>
+    </div>
+
+    <!-- Поле для ввода ID родительской карточки -->
+    <div class="input-section">
+      <label class="addon-input-label">ID родительской карточки</label>
+      <input type="number" id="parentCardId" class="addon-input" 
+             placeholder="Например: 12345678" style="width: 100%; margin-top: 4px;">
+      <div style="font-size: 12px; color: var(--addon-text-secondary-color); margin-top: 4px;">
+        Введите ID карточки, которую хотите сделать родительской для текущей карточки
+      </div>
+    </div>
+
+    <!-- Быстрые ссылки для поиска -->
+    <div id="quickLinks" style="margin-bottom: 16px;">
+      <div style="font-size: 12px; color: var(--addon-text-secondary-color); margin-bottom: 8px;">
+        🔗 Быстрые ссылки для поиска:
+      </div>
+      <div id="linksList"></div>
+    </div>
+
+    <!-- Кнопки управления -->
+    <div style="display: flex; justify-content: flex-end; gap: 8px;">
+      <button id="cancelButton" class="addon-btn">Отмена</button>
+      <button id="linkButton" class="addon-btn-primary" disabled>Связать карточки</button>
+    </div>
+  </div>
+
+  <script src="search-cards.js"></script>
+</body>
+</html>
