@@ -8,6 +8,13 @@ Addon.initialize({
       517314: 532009, 
       517324: 532011
     };
+    
+    // Маппинг board_id → space_id (добавьте ваши board_id)
+    const boardToSpaceMap = {
+      1183281: 517319, // Замените на ваши реальные board_id
+      // Добавьте другие board_id по мере необходимости
+    };
+    
     const innFieldId = 415447;
 
     buttons.push({
@@ -46,30 +53,131 @@ Addon.initialize({
             return;
           }
           
-          // 3. Определяем пространство через board_id
+          // 3. Определяем пространство
           let currentSpaceId = currentCard.space?.id || currentCard.space_id;
           
+          // Если нет прямого space_id, пробуем через board_id маппинг
           if (!currentSpaceId && currentCard.board_id) {
-            console.log('Получаем space_id через board_id:', currentCard.board_id);
-            try {
-              const boardData = await buttonContext.request({
-                method: 'GET',
-                url: `/boards/${currentCard.board_id}`
-              });
-              currentSpaceId = boardData.space_id;
-              console.log('Space ID получен через доску:', currentSpaceId);
-            } catch (e) {
-              console.error('Ошибка получения данных доски:', e);
-              showMessage('Не удалось получить ID пространства через доску', 'error');
-              return;
-            }
+            currentSpaceId = boardToSpaceMap[currentCard.board_id];
+            console.log('Space ID получен через boardToSpaceMap:', currentSpaceId);
           }
           
           console.log('Current space ID:', currentSpaceId);
           
+          // Если space_id не определен, ищем во всех пространствах
           if (!currentSpaceId) {
-            showMessage('Не удалось определить ID пространства текущей карточки', 'error');
-            return;
+            console.log('Space ID не определен, ищем во всех пространствах...');
+            showMessage(`Не удалось определить пространство, ищем во всех настроенных пространствах...`, 'info');
+            
+            // Ищем во всех целевых пространствах
+            const allSearchSpaces = Object.values(spaceMap);
+            let allFoundCards = [];
+            
+            for (const searchSpaceId of allSearchSpaces) {
+              try {
+                console.log(`Ищем в пространстве ${searchSpaceId}...`);
+                
+                const params = new URLSearchParams({
+                  space_id: searchSpaceId,
+                  'custom_fields[0][field_id]': innFieldId,
+                  'custom_fields[0][value]': innValue
+                });
+                
+                const foundCards = await buttonContext.request({
+                  method: 'GET',
+                  url: `/cards?${params.toString()}`
+                });
+                
+                if (foundCards && foundCards.length > 0) {
+                  // Добавляем информацию о пространстве к карточкам
+                  foundCards.forEach(card => {
+                    card._sourceSpace = searchSpaceId;
+                  });
+                  allFoundCards.push(...foundCards);
+                  console.log(`Найдено ${foundCards.length} карточек в пространстве ${searchSpaceId}`);
+                }
+              } catch (e) {
+                console.error(`Ошибка поиска в пространстве ${searchSpaceId}:`, e);
+              }
+            }
+            
+            // Исключаем текущую карточку
+            const validCards = allFoundCards.filter(card => card.id !== currentCard.id);
+            
+            if (validCards.length === 0) {
+              showMessage(`Карточки с ИНН ${innValue} не найдены ни в одном из настроенных пространств`, 'info');
+              return;
+            }
+            
+            // Показываем результаты из всех пространств
+            console.log(`Всего найдено ${validCards.length} подходящих карточек`);
+            
+            if (validCards.length === 1) {
+              // Автоматически связываем с единственной найденной карточкой
+              const parentCard = validCards[0];
+              try {
+                await buttonContext.request({
+                  method: 'PUT',
+                  url: `/cards/${currentCard.id}`,
+                  data: {
+                    parent_id: parentCard.id
+                  }
+                });
+                
+                showMessage(`Карточка #${parentCard.id} "${parentCard.title}" из пространства ${parentCard._sourceSpace} установлена как родительская`, 'success');
+              } catch (e) {
+                console.error('Ошибка установки связи:', e);
+                showMessage(`Ошибка установки родительской связи: ${e.message}`, 'error');
+              }
+              return;
+            }
+            
+            // Показываем выбор из нескольких карточек
+            const cardsList = validCards.map((card, index) => 
+              `${index + 1}. #${card.id} - ${card.title} (пространство ${card._sourceSpace})`
+            ).join('\n');
+            
+            const userChoice = prompt(
+              `Найдено ${validCards.length} карточек с ИНН ${innValue}:\n\n${cardsList}\n\nВведите номер карточки (1-${validCards.length}) или ID карточки для установки как родительской, или отмените:`
+            );
+            
+            if (!userChoice) {
+              showMessage('Операция отменена', 'info');
+              return;
+            }
+            
+            let selectedCard;
+            const choice = userChoice.trim();
+            const choiceNumber = parseInt(choice, 10);
+            
+            if (choiceNumber >= 1 && choiceNumber <= validCards.length) {
+              selectedCard = validCards[choiceNumber - 1];
+            } else {
+              selectedCard = validCards.find(card => card.id === choiceNumber);
+            }
+            
+            if (!selectedCard) {
+              showMessage(`Неверный выбор: "${choice}". Введите номер от 1 до ${validCards.length} или ID карточки`, 'error');
+              return;
+            }
+            
+            // Устанавливаем связь
+            try {
+              await buttonContext.request({
+                method: 'PUT',
+                url: `/cards/${currentCard.id}`,
+                data: {
+                  parent_id: selectedCard.id
+                }
+              });
+              
+              showMessage(`Карточка #${selectedCard.id} "${selectedCard.title}" из пространства ${selectedCard._sourceSpace} установлена как родительская`, 'success');
+            } catch (e) {
+              console.error('Ошибка установки связи:', e);
+              showMessage(`Ошибка установки родительской связи: ${e.message}`, 'error');
+            }
+            
+            return; // Завершаем выполнение, так как обработали случай с неопределенным пространством
           }
           
           // 4. Проверяем настройку пространства
