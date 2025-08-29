@@ -46,8 +46,25 @@ Addon.initialize({
             return;
           }
           
-          // 3. Определяем пространство
-          const currentSpaceId = currentCard.space?.id || currentCard.space_id;
+          // 3. Определяем пространство через board_id
+          let currentSpaceId = currentCard.space?.id || currentCard.space_id;
+          
+          if (!currentSpaceId && currentCard.board_id) {
+            console.log('Получаем space_id через board_id:', currentCard.board_id);
+            try {
+              const boardData = await buttonContext.request({
+                method: 'GET',
+                url: `/boards/${currentCard.board_id}`
+              });
+              currentSpaceId = boardData.space_id;
+              console.log('Space ID получен через доску:', currentSpaceId);
+            } catch (e) {
+              console.error('Ошибка получения данных доски:', e);
+              showMessage('Не удалось получить ID пространства через доску', 'error');
+              return;
+            }
+          }
+          
           console.log('Current space ID:', currentSpaceId);
           
           if (!currentSpaceId) {
