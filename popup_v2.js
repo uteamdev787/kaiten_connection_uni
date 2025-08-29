@@ -7,7 +7,7 @@ const spaceMap = {
 const innFieldId = 415447;
 // --- КОНЕЦ КОНФИГУРАЦИИ ---
 
-// Инициализация iframe SDK (как в оригинале)
+// Инициализация iframe SDK
 const iframe = Addon.iframe();
 
 // DOM элементы
@@ -32,29 +32,42 @@ function setStatus(message, isError = false) {
   }
 }
 
-// Получение space_id через boardId (если есть)
-async function getSpaceIdFromBoard(boardId) {
-  if (!boardId) return null;
-  
+// Поиск карточек через прямой API вызов
+async function findCardsByInn(spaceId, innValue) {
   try {
-    setStatus('3.1/6: Пробуем получить пространство через доску...');
+    // Формируем параметры для API запроса
+    const params = new URLSearchParams({
+      space_id: spaceId,
+      'custom_fields[0][field_id]': innFieldId,
+      'custom_fields[0][value]': innValue
+    });
     
-    // Попробуем прямой API запрос к доске
-    const boardData = await iframe.api.get(`/boards/${boardId}`);
-    if (boardData && boardData.space_id) {
-      return boardData.space_id;
-    }
+    const response = await iframe.api.get(`/cards?${params.toString()}`);
+    return response || [];
+    
   } catch (error) {
-    console.log('Ошибка получения данных доски:', error);
+    console.log(`Ошибка поиска в пространстве ${spaceId}:`, error);
+    return [];
   }
-  
-  return null;
 }
 
-// Получение space_id через карточку
-async function getSpaceIdFromCard(cardId) {
+// Обновление карточки через прямой API
+async function updateCardParent(cardId, parentId) {
   try {
-    setStatus('3.2/6: Пробуем получить пространство через карточку...');
+    await iframe.api.put(`/cards/${cardId}`, {
+      parent_id: parentId
+    });
+    return true;
+  } catch (error) {
+    console.error('Ошибка обновления карточки:', error);
+    return false;
+  }
+}
+
+// Получение space_id разными способами
+async function getCurrentSpaceId(cardId) {
+  try {
+    setStatus('3/6: Определяем пространство...');
     
     // Способ 1: Через контекст карточки
     try {
@@ -64,7 +77,7 @@ async function getSpaceIdFromCard(cardId) {
         return cardContext.space_id;
       }
     } catch (e) {
-      console.log('getCardContext не сработал:', e);
+      console.log('getCardContext не работает:', e);
     }
     
     // Способ 2: Через API карточки
@@ -74,65 +87,115 @@ async function getSpaceIdFromCard(cardId) {
       if (cardData && cardData.space && cardData.space.id) {
         return cardData.space.id;
       }
-    } catch (e) {
-      console.log('API запрос карточки не сработал:', e);
-    }
-    
-    // Способ 3: Попробуем получить данные карточки через cards.get
-    try {
-      const card = await iframe.cards.get(cardId);
-      console.log('Card from cards.get:', card);
-      if (card && card.space && card.space.id) {
-        return card.space.id;
+      if (cardData && cardData.space_id) {
+        return cardData.space_id;
       }
     } catch (e) {
-      console.log('cards.get не сработал:', e);
+      console.log('API запрос карточки не работает:', e);
     }
     
+    return null;
+    
   } catch (error) {
-    console.log('Общая ошибка получения space_id через карточку:', error);
+    console.log('Ошибка получения space_id:', error);
+    return null;
   }
-  
-  return null;
 }
 
-// Проверим все доступные пространства и попробуем угадать
-async function tryGuessSpaceFromCards(innValue) {
-  setStatus('3.3/6: Попытка определить пространство через поиск...');
+// Показать результаты поиска во всех пространствах
+async function showAllPossibleResults(innValue) {
+  setStatus('4/6: Поиск во всех настроенных пространствах...');
   
-  // Проверим все пространства из конфигурации
+  const allFoundCards = [];
+  
+  // Ищем во всех поисковых пространствах
   for (const [inputSpaceId, searchSpaceId] of Object.entries(spaceMap)) {
     try {
-      // Попробуем найти карточки в поисковом пространстве
-      const foundCards = await iframe.cards.find({
-        space_id: parseInt(searchSpaceId),
-        custom_fields: [{ 
-          field_id: innFieldId, 
-          value: innValue 
-        }]
-      });
+      setStatus(`Поиск в пространстве ${searchSpaceId}...`);
+      const foundCards = await findCardsByInn(parseInt(searchSpaceId), innValue);
       
       if (foundCards && foundCards.length > 0) {
-        console.log(`Найдены карточки в пространстве ${searchSpaceId}, значит текущее пространство: ${inputSpaceId}`);
-        return parseInt(inputSpaceId);
+        // Добавляем информацию о пространстве к каждой карточке
+        foundCards.forEach(card => {
+          card._sourceSpace = searchSpaceId;
+        });
+        allFoundCards.push(...foundCards);
       }
     } catch (e) {
       console.log(`Ошибка поиска в пространстве ${searchSpaceId}:`, e);
     }
   }
   
-  return null;
+  await showSearchResults(allFoundCards);
+}
+
+// Показать результаты поиска в конкретном пространстве
+async function showTargetSpaceResults(currentSpaceId, innValue) {
+  const searchSpaceId = spaceMap[currentSpaceId];
+  
+  setStatus(`5/6: Поиск в целевом пространстве ${searchSpaceId}...`);
+  
+  const foundCards = await findCardsByInn(searchSpaceId, innValue);
+  await showSearchResults(foundCards);
+}
+
+// Показать результаты поиска
+async function showSearchResults(foundCards) {
+  setStatus('6/6: Обработка результатов...');
+  
+  // Скрываем статус и показываем основной UI
+  if (statusInfo) statusInfo.style.display = 'none';
+  if (mainUI) mainUI.style.display = 'block';
+  if (loader) loader.style.display = 'block';
+  iframe.fitSize(contentDiv);
+  
+  if (loader) loader.style.display = 'none';
+
+  if (!foundCards || foundCards.length === 0) {
+    if (noResultsBlock) noResultsBlock.style.display = 'block';
+  } else {
+    // Очищаем контейнер и добавляем найденные карточки
+    choicesContainer.innerHTML = '';
+    
+    foundCards.forEach(card => {
+      const radioId = `card-${card.id}`;
+      const label = document.createElement('label');
+      label.className = 'radio-label';
+      
+      // Добавляем информацию о пространстве если есть
+      const spaceInfo = card._sourceSpace ? ` (из пространства ${card._sourceSpace})` : '';
+      
+      label.innerHTML = `
+        <input type="radio" name="parentCard" value="${card.id}" id="${radioId}"> 
+        #${card.id} - ${card.title}${spaceInfo}
+      `;
+      choicesContainer.appendChild(label);
+    });
+    
+    if (resultsBlock) resultsBlock.style.display = 'block';
+    
+    // Включаем кнопку "Связать" когда выбрана карточка
+    choicesContainer.addEventListener('change', () => {
+      setParentButton.disabled = false;
+    });
+  }
+  
+  iframe.fitSize(contentDiv);
 }
 
 iframe.render(async () => {
   try {
-    setStatus('1/6: SDK готов, читаем параметры...');
+    setStatus('1/6: Проверка доступных методов...');
     
     // Отладочная информация
     console.log('iframe object:', iframe);
     console.log('Available iframe methods:', Object.keys(iframe));
+    console.log('iframe.api:', iframe.api);
+    console.log('iframe.cards:', iframe.cards);
+    console.log('iframe.boards:', iframe.boards);
     
     // 2. Чтение параметров из URL
+    setStatus('2/6: Чтение параметров из URL...');
     const urlParams = new URLSearchParams(window.location.search);
     const cardId = urlParams.get('card_id');
     const boardId = urlParams.get('board_id');
@@ -142,9 +205,9 @@ iframe.render(async () => {
     }
     
     currentCardId = cardId;
-    setStatus(`2/6: Параметры получены. Card ID: ${cardId}, Board ID: ${boardId || 'нет'}`);
+    setStatus(`Параметры получены. Card ID: ${cardId}, Board ID: ${boardId || 'нет'}`);
     
-    // 3. Сначала получим значение ИНН (это точно работает)
+    // 3. Получение значения ИНН
     setStatus('3/6: Получение значения ИНН...');
     const cardProps = await iframe.getCardProperties('customProperties');
     
@@ -162,130 +225,26 @@ iframe.render(async () => {
     
     const innValue = innField.value;
     innInput.value = innValue;
-    setStatus(`ИНН получен: ${innValue}. Определяем пространство...`);
+    setStatus(`ИНН получен: ${innValue}`);
     
-    // 4. Пробуем получить space_id разными способами
-    let currentSpaceId = null;
+    // 4. Пробуем определить пространство
+    const currentSpaceId = await getCurrentSpaceId(cardId);
     
-    // Попробуем через доску
-    currentSpaceId = await getSpaceIdFromBoard(boardId);
-    
-    // Если не получилось, попробуем через карточку
-    if (!currentSpaceId) {
-      currentSpaceId = await getSpaceIdFromCard(cardId);
-    }
-    
-    // Если всё еще не получилось, попробуем угадать через поиск
-    if (!currentSpaceId) {
-      currentSpaceId = await tryGuessSpaceFromCards(innValue);
-    }
-    
-    // Если не удалось определить автоматически, показываем выбор
-    if (!currentSpaceId) {
-      setStatus('4/6: Не удалось автоматически определить пространство. Показываем все варианты...');
+    if (currentSpaceId && spaceMap[currentSpaceId]) {
+      // Если удалось определить пространство и оно настроено
+      setStatus(`4/6: Пространство определено: ${currentSpaceId}`);
+      await showTargetSpaceResults(currentSpaceId, innValue);
+    } else {
+      // Если не получилось определить или пространство не настроено
+      setStatus(`4/6: Пространство не определено (${currentSpaceId}). Поиск везде...`);
       await showAllPossibleResults(innValue);
-      return;
     }
-    
-    setStatus(`4/6: Пространство определено: ${currentSpaceId}`);
-    
-    // 5. Проверяем настройку
-    const searchSpaceId = spaceMap[currentSpaceId];
-    if (!searchSpaceId) {
-      setStatus(`Пространство ${currentSpaceId} не настроено. Показываем все варианты...`);
-      await showAllPossibleResults(innValue);
-      return;
-    }
-    
-    setStatus(`5/6: Ищем в пространстве ${searchSpaceId}...`);
-    
-    // Показываем UI
-    if (statusInfo) statusInfo.style.display = 'none';
-    if (mainUI) mainUI.style.display = 'block';
-    if (loader) loader.style.display = 'block';
-    iframe.fitSize(contentDiv);
-
-    // 6. Поиск карточек
-    const foundCards = await iframe.cards.find({
-      space_id: searchSpaceId,
-      custom_fields: [{ 
-        field_id: innFieldId, 
-        value: innValue 
-      }]
-    });
-
-    await showSearchResults(foundCards);
 
   } catch (error) {
     setStatus(`Критическая ошибка: ${error.message}`, true);
     console.error('Полная ошибка:', error);
   }
 });
-
-// Показать результаты поиска во всех пространствах
-async function showAllPossibleResults(innValue) {
-  setStatus('Поиск во всех настроенных пространствах...');
-  
-  if (statusInfo) statusInfo.style.display = 'none';
-  if (mainUI) mainUI.style.display = 'block';
-  if (loader) loader.style.display = 'block';
-  iframe.fitSize(contentDiv);
-
-  const allFoundCards = [];
-  
-  // Ищем во всех поисковых пространствах
-  for (const searchSpaceId of Object.values(spaceMap)) {
-    try {
-      const foundCards = await iframe.cards.find({
-        space_id: parseInt(searchSpaceId),
-        custom_fields: [{ 
-          field_id: innFieldId, 
-          value: innValue 
-        }]
-      });
-      
-      if (foundCards && foundCards.length > 0) {
-        allFoundCards.push(...foundCards);
-      }
-    } catch (e) {
-      console.log(`Ошибка поиска в пространстве ${searchSpaceId}:`, e);
-    }
-  }
-  
-  await showSearchResults(allFoundCards);
-}
-
-// Показать результаты поиска
-async function showSearchResults(foundCards) {
-  if (loader) loader.style.display = 'none';
-
-  if (!foundCards || foundCards.length === 0) {
-    if (noResultsBlock) noResultsBlock.style.display = 'block';
-  } else {
-    // Очищаем контейнер и добавляем найденные карточки
-    choicesContainer.innerHTML = '';
-    
-    foundCards.forEach(card => {
-      const radioId = `card-${card.id}`;
-      const label = document.createElement('label');
-      label.className = 'radio-label';
-      label.innerHTML = `
-        <input type="radio" name="parentCard" value="${card.id}" id="${radioId}"> 
-        #${card.id} - ${card.title}
-      `;
-      choicesContainer.appendChild(label);
-    });
-    
-    if (resultsBlock) resultsBlock.style.display = 'block';
-    
-    // Включаем кнопку "Связать" когда выбрана карточка
-    choicesContainer.addEventListener('change', () => {
-      setParentButton.disabled = false;
-    });
-  }
-  
-  iframe.fitSize(contentDiv);
-}
 
 // Обработчик кнопки "Связать с договором"
 setParentButton.addEventListener('click', async () => {
@@ -298,12 +257,14 @@ setParentButton.addEventListener('click', async () => {
     setParentButton.disabled = true;
     setParentButton.textContent = 'Связывание...';
     
-    await iframe.cards.update(currentCardId, { 
-      parent_id: parentCardId 
-    });
+    const success = await updateCardParent(currentCardId, parentCardId);
     
-    iframe.showSnackbar('Связь с договором установлена!', 'success');
-    iframe.closePopup();
+    if (success) {
+      iframe.showSnackbar('Связь с договором установлена!', 'success');
+      iframe.closePopup();
+    } else {
+      throw new Error('Не удалось обновить карточку');
+    }
     
   } catch (error) {
     console.error('Ошибка при установке родителя:', error);
