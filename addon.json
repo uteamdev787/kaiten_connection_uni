@@ -9,10 +9,6 @@
       "locations": {
         "spaceIds": [517319]
       }
-    },
-    {
-      "type": "background",
-      "url": "./index.html"
     }
   ],
   "permissions": [
