@@ -93,6 +93,16 @@
       font-size: 20px;
       margin-right: 8px;
     }
+
+    .status {
+      background: #e8f5e8;
+      border: 1px solid #4caf50;
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 20px;
+      text-align: center;
+      color: #2e7d2e;
+    }
   </style>
 </head>
 <body>
@@ -117,7 +127,7 @@
       <div class="steps">
         <div class="step">Откройте карточку счета на оплату</div>
         <div class="step">Заполните поле ИНН (ID: 415447)</div>
-        <div class="step">Нажмите кнопку "Найти договор по ИНН" или дождитесь автоматического поиска</div>
+        <div class="step">Нажмите кнопку "Найти договор по ИНН"</div>
         <div class="step">Выберите нужный договор из найденных</div>
         <div class="step">Готово! Счет теперь связан с договором как дочерняя карточка</div>
       </div>
@@ -132,12 +142,13 @@
         <li>Пространство 517324 → Пространство 532011</li>
       </ul>
     </div>
+
+    <div class="status">
+      ✅ Аддон успешно загружен и готов к работе
+    </div>
   </div>
 
   <!-- Подключение основной логики -->
   <script src="main.js"></script>
-  
-  <!-- Подключение кнопок интерфейса -->
-  <script src="client.js"></script>
 </body>
 </html>
