@@ -1,0 +1,158 @@
+// --- ВАШИ НАСТРОЙКИ (ОБЯЗАТЕЛЬНО ЗАПОЛНИТЬ!) ---
+// Замените на ваш домен в Kaiten (например, mycompany.kaiten.ru)
+const KAITEN_DOMAIN = 'pokusaev.kaiten.ru'; 
+
+// Замените на ваш API ключ. 
+// Получить: Мой профиль -> API-ключи -> Создать ключ.
+// ВНИМАНИЕ: Для GitHub Pages ключ будет виден всем, кто знает URL. 
+// Убедитесь, что этот ключ имеет доступ только к необходимым операциям.
+const API_TOKEN = '507e44dd-373b-4945-a350-10ade92f5606'; 
+
+// ID кастомного поля "ИНН Партнера"
+const INN_FIELD_ID = 415447; 
+
+// ID пространства, где искать карточки договоров
+const CONTRACTS_SPACE_ID = 517325; 
+// ----------------------------------------------------
+
+const iframe = Addon.iframe();
+
+// Получаем элементы DOM
+const innInput = document.getElementById('innInput');
+const searchButton = document.getElementById('search');
+const cancelButton = document.getElementById('cancel');
+const loader = document.getElementById('loader');
+const resultsContainer = document.getElementById('results-container');
+const contentDiv = document.getElementById('link-content');
+
+let currentCardId = null;
+
+// Шаг 1: Инициализация и получение ИНН из текущей карточки
+iframe.render(async () => {
+  try {
+    // Получаем кастомные поля
+    const props = await iframe.getCardProperties('customProperties');
+    // Находим поле по ID
+    const innField = props.find(p => p.property.id === INN_FIELD_ID);
+    
+    if (innField && innField.value) {
+      innInput.value = innField.value;
+    } else {
+      iframe.showSnackbar('Поле "ИНН Партнера" не заполнено в карточке', 'warning');
+    }
+
+    // Получаем ID текущей карточки (счета), чтобы знать, к чему привязывать родителя
+    const card = await iframe.getCard();
+    currentCardId = card.id;
+    
+    // Подгоняем размер окна под контент
+    iframe.fitSize(contentDiv);
+  } catch (error) {
+    console.error('Ошибка инициализации:', error);
+    iframe.showSnackbar('Не удалось загрузить данные из карточки', 'error');
+  }
+});
+
+// Шаг 2: Поиск договоров по нажатию кнопки
+searchButton.addEventListener('click', async () => {
+  const inn = innInput.value.trim();
+  if (!inn) {
+    iframe.showSnackbar('ИНН не указан', 'warning');
+    return;
+  }
+  
+  setLoading(true);
+
+  // Формируем URL для поиска по API Kaiten:
+  // Ищем карточки в пространстве CONTRACTS_SPACE_ID
+  // И фильтруем их по кастомному полю INN_FIELD_ID со значением inn
+  const searchUrl = `https://${KAITEN_DOMAIN}/api/v1/cards?space_ids[]=${CONTRACTS_SPACE_ID}&custom_fields[]=${INN_FIELD_ID}:${inn}`;
+        
+  try {
+    const response = await fetch(searchUrl, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${API_TOKEN}`, // Используем наш ключ
+            'Accept': 'application/json'
+        }
+    });
+
+    if (!response.ok) throw new Error(`Ошибка API: ${response.statusText}`);
+    
+    const cards = await response.json();
+    renderResults(cards); // Передаем найденные карточки на отрисовку
+
+  } catch (error) {
+    console.error('Ошибка поиска:', error);
+    iframe.showSnackbar(`Ошибка поиска: ${error.message}`, 'error');
+  } finally {
+    setLoading(false);
+  }
+});
+
+// Функция отображения результатов поиска
+function renderResults(cards) {
+  resultsContainer.innerHTML = '';
+  resultsContainer.style.display = 'block'; // Показываем блок результатов
+
+  if (cards.length === 0) {
+    resultsContainer.innerHTML = '<div>Договоры с таким ИНН не найдены.</div>';
+    iframe.fitSize(contentDiv); // Пересчитываем размер окна
+    return;
+  }
+
+  // Создаем кликабельный элемент для каждой найденной карточки
+  cards.forEach(card => {
+    const item = document.createElement('div');
+    item.className = 'result-item';
+    item.innerHTML = `<strong>${card.title}</strong> (ID: ${card.id})`;
+    // При клике вызываем функцию связывания (Шаг 3)
+    item.addEventListener('click', () => linkToParent(card.id));
+    resultsContainer.appendChild(item);
+  });
+  
+  iframe.fitSize(contentDiv); // Пересчитываем размер окна (оно станет выше)
+}
+
+// Шаг 3: Связывание карточек
+async function linkToParent(parentId) {
+  if (!currentCardId) {
+     iframe.showSnackbar('Ошибка: не найден ID текущей карточки', 'error');
+     return;
+  }
+  
+  setLoading(true);
+
+  // URL для обновления НАШЕЙ ТЕКУЩЕЙ карточки (карточки счета)
+  const updateUrl = `https://${KAITEN_DOMAIN}/api/v1/cards/${currentCardId}/`;
+
+  try {
+    const response = await fetch(updateUrl, {
+      method: 'PATCH', // Метод PATCH для частичного обновления
+      headers: {
+        'Authorization': `Bearer ${API_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ parent_id: parentId }) // Передаем ID договора как parent_id
+    });
+
+    if (!response.ok) throw new Error(`Ошибка API: ${await response.text()}`);
+
+    iframe.showSnackbar('Карточка успешно связана с договором!', 'success');
+    iframe.closePopup(); // Закрываем аддон в случае успеха
+
+  } catch (error) {
+    console.error('Ошибка связывания:', error);
+    iframe.showSnackbar(`Не удалось установить связь: ${error.message}`, 'error');
+    setLoading(false);
+  }
+}
+
+// Вспомогательные функции
+function setLoading(isLoading) {
+  loader.style.display = isLoading ? 'block' : 'none';
+  searchButton.disabled = isLoading;
+  iframe.fitSize(contentDiv);
+}
+
+cancelButton.addEventListener('click', () => iframe.closePopup());
