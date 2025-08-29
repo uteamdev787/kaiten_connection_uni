@@ -1,14 +1,10 @@
 {
   "title": "Связывание с договором по ИНН",
-  "baseUrl": "https://github.com/uteamdev787/kaiten_connection_uni/",
+  "baseUrl": "https://uteamdev787.github.io/kaiten_connection_uni/",
   "entrypoints": [
     {
-      "type": "card-button",
-      "label": "Связать с договором",
-      "url": "./index.html",
-      "locations": {
-        "spaceIds": [517319]
-      }
+      "type": "background",
+      "url": "./index.html"
     }
   ],
   "permissions": [
