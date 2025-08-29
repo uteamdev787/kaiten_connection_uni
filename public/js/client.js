@@ -1,13 +1,11 @@
 Addon.initialize({
   // 1. Создаем кнопку внутри карточки
-  'card_buttons': async (cardButtonsContext) => {
+  'card_buttons': async (context) => {
     
-    // Получаем ID пространства, в котором находится карточка
-    const card = await cardButtonsContext.getCard();
-    
-    // Показываем кнопку только в пространстве счетов (id 517319)
-    if (card.space.id !== 517319) {
-      return [];
+    // ID пространства берем напрямую из контекста, который передается в функцию.
+    // Это надежнее и не требует лишнего API-запроса.
+    if (context.space.id !== 517319) {
+      return []; // Если это не пространство счетов, не показываем кнопку
     }
 
     // Если это пространство счетов, возвращаем кнопку
@@ -28,6 +26,7 @@ Addon.initialize({
 
   // 2. Добавляем значок (бейдж) на фасад карточки
   'card_facade_badges': async (context) => {
+    // Здесь getCard() нужен, чтобы проверить наличие parent_id
     const card = await context.getCard();
     
     // Если у карточки есть родитель, показываем зеленый бейдж
