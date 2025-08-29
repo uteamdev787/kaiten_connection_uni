@@ -144,63 +144,84 @@ async function processInvoiceINN(buttonContext, api, card, innValue) {
   }
 }
 
-// Инициализация аддона
-Addon.initialize({
-  'card_buttons': async (cardButtonsContext) => {
-    console.log('🔘 Инициализация кнопок аддона');
-    
-    const buttons = [];
+// Инициализация аддона с обработкой всех возможных locations
+try {
+  Addon.initialize({
+    'card_buttons': async (cardButtonsContext) => {
+      console.log('🔘 Инициализация кнопок аддона');
+      
+      const buttons = [];
 
-    // Кнопка для поиска и связывания с договором
-    buttons.push({
-      text: '🔗 Найти договор по ИНН',
-      callback: async (buttonContext) => {
-        try {
-          console.log('🔘 Нажата кнопка поиска договора');
-          
-          // Получаем данные текущей карточки
-          const currentCard = await buttonContext.getCard();
-          console.log('📋 Данные карточки получены:', currentCard);
-          
-          // Получаем API для работы с карточками
-          const api = await buttonContext.getApi();
-          console.log('🔌 API получен');
-          
-          // Получаем значение ИНН
-          const innKey = `id_${INN_FIELD_ID}`;
-          let innValue = null;
-          
-          if (currentCard.properties && currentCard.properties[innKey]) {
-            innValue = currentCard.properties[innKey].toString().trim();
-          }
-          
-          // Проверяем наличие ИНН
-          if (!innValue) {
+      // Кнопка для поиска и связывания с договором
+      buttons.push({
+        text: '🔗 Найти договор по ИНН',
+        callback: async (buttonContext) => {
+          try {
+            console.log('🔘 Нажата кнопка поиска договора');
+            
+            // Получаем данные текущей карточки
+            const currentCard = await buttonContext.getCard();
+            console.log('📋 Данные карточки получены:', currentCard);
+            
+            // Получаем API для работы с карточками
+            const api = await buttonContext.getApi();
+            console.log('🔌 API получен');
+            
+            // Получаем значение ИНН
+            const innKey = `id_${INN_FIELD_ID}`;
+            let innValue = null;
+            
+            if (currentCard.properties && currentCard.properties[innKey]) {
+              innValue = currentCard.properties[innKey].toString().trim();
+            }
+            
+            // Проверяем наличие ИНН
+            if (!innValue) {
+              buttonContext.showSnackbar(
+                '❌ Заполните поле ИНН перед поиском договора', 
+                'warning'
+              );
+              return;
+            }
+
+            console.log('🔍 ИНН для поиска:', innValue);
+            
+            // Запускаем процесс поиска и связывания
+            await processInvoiceINN(buttonContext, api, currentCard, innValue);
+
+          } catch (error) {
+            console.error('❌ Ошибка в кнопке поиска:', error);
             buttonContext.showSnackbar(
-              '❌ Заполните поле ИНН перед поиском договора', 
-              'warning'
+              'Произошла ошибка при поиске договора', 
+              'error'
             );
-            return;
           }
-
-          console.log('🔍 ИНН для поиска:', innValue);
-          
-          // Запускаем процесс поиска и связывания
-          await processInvoiceINN(buttonContext, api, currentCard, innValue);
-
-        } catch (error) {
-          console.error('❌ Ошибка в кнопке поиска:', error);
-          buttonContext.showSnackbar(
-            'Произошла ошибка при поиске договора', 
-            'error'
-          );
         }
-      }
-    });
+      });
 
-    console.log('✅ Кнопки аддона готовы');
-    return buttons;
-  }
-});
+      console.log('✅ Кнопки аддона готовы');
+      return buttons;
+    },
+    
+    // Заглушки для предотвращения ошибок с неиспользуемыми locations
+    'card_body_section': async () => {
+      console.log('📄 Запрос card_body_section (игнорируется)');
+      return null;
+    },
+    
+    'card_header': async () => {
+      console.log('📄 Запрос card_header (игнорируется)');
+      return null;
+    },
+    
+    'card_side_panel': async () => {
+      console.log('📄 Запрос card_side_panel (игнорируется)');
+      return null;
+    }
+  });
 
-console.log('✅ Аддон связывания счетов с договорами загружен успешно');
+  console.log('✅ Аддон связывания счетов с договорами загружен успешно');
+  
+} catch (error) {
+  console.error('❌ Ошибка инициализации аддона:', error);
+}
