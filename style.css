@@ -1,0 +1,177 @@
+/* Дополнительные стили для аддона связывания счетов с договорами */
+
+:root {
+  --link-color: #007bff;
+  --success-color: #28a745;
+  --warning-color: #ffc107;
+  --error-color: #dc3545;
+  --info-color: #17a2b8;
+}
+
+/* Стили для уведомлений */
+.contract-notification {
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.contract-notification.success {
+  background-color: rgba(40, 167, 69, 0.1);
+  border: 1px solid var(--success-color);
+  color: var(--success-color);
+}
+
+.contract-notification.error {
+  background-color: rgba(220, 53, 69, 0.1);
+  border: 1px solid var(--error-color);
+  color: var(--error-color);
+}
+
+.contract-notification.warning {
+  background-color: rgba(255, 193, 7, 0.1);
+  border: 1px solid var(--warning-color);
+  color: #856404;
+}
+
+.contract-notification.info {
+  background-color: rgba(23, 162, 184, 0.1);
+  border: 1px solid var(--info-color);
+  color: var(--info-color);
+}
+
+/* Стили для диалога выбора договора */
+.contract-choice-dialog {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.contract-choice-item {
+  display: block;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background: var(--addon-background-level2, #f8f9fa);
+  text-decoration: none;
+  color: var(--addon-text-primary-color, #333);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.contract-choice-item:hover {
+  border-color: var(--link-color);
+  background: var(--addon-background-level3, #e9ecef);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.contract-choice-item:active {
+  transform: translateY(0);
+}
+
+.contract-choice-title {
+  font-weight: 500;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.contract-choice-meta {
+  font-size: 12px;
+  color: var(--addon-text-secondary-color, #666);
+}
+
+/* Анимации загрузки */
+.loading-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--addon-background-level2, #f8f9fa);
+  border-radius: 50%;
+  border-top-color: var(--link-color);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Стили для эмодзи в уведомлениях */
+.emoji-icon {
+  font-size: 16px;
+  margin-right: 6px;
+}
+
+/* Кнопка поиска договора */
+.find-contract-button {
+  background: var(--link-color) !important;
+  border: none !important;
+  color: white !important;
+  padding: 8px 16px !important;
+  border-radius: 6px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.find-contract-button:hover {
+  background: #0056b3 !important;
+  transform: translateY(-1px);
+}
+
+.find-contract-button:disabled {
+  background: #ccc !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+/* Стили для карточек с информацией */
+.info-card {
+  background: var(--addon-background-level2, white);
+  border: 1px solid var(--addon-divider, #e0e0e0);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.info-card-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.info-card-header .emoji-icon {
+  font-size: 20px;
+  margin-right: 8px;
+}
+
+.info-card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--addon-text-primary-color, #333);
+}
+
+.info-card-content {
+  color: var(--addon-text-secondary-color, #666);
+  line-height: 1.5;
+}
+
+/* Адаптивность */
+@media (max-width: 480px) {
+  .contract-choice-dialog {
+    max-width: 100%;
+    margin: 0 8px;
+  }
+  
+  .find-contract-button {
+    width: 100% !important;
+    margin-top: 8px !important;
+  }
+  
+  .info-card {
+    padding: 12px;
+  }
+}
