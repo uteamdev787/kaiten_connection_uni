@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <!-- Загружаем SDK и стили Kaiten -->
+  <script src="https://files.kaiten.ru/web-sdk/v1.min.js"></script>
+  <link href="https://files.kaiten.ru/web-sdk/v1.min.css" rel="stylesheet" />
+  <style>
+    /* Стили для загрузчика (loader) */
+    .loader {
+      display: none; text-align: center; margin-top: 16px;
+    }
+    .loader-spinner {
+      display: inline-block; width: 20px; height: 20px; border: 3px solid var(--addon-background-level2);
+      border-radius: 50%; border-top-color: var(--addon-primary-color); animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    /* Стили для результатов */
+    .results { margin-top: 20px; border-top: 1px solid var(--addon-divider); padding-top: 16px; }
+    .result-item {
+      padding: 8px 12px; border-radius: 4px; cursor: pointer;
+      border: 1px solid var(--addon-divider); margin-bottom: 8px;
+    }
+    .result-item:hover { background-color: var(--addon-background-level2); }
+  </style>
+</head>
+<body style="padding: 16px;">
+  <div id="link-content">
+    <label for="innInput" class="addon-input-label">ИНН Партнера</label>
+    <input type="text" id="innInput" class="addon-input" style="width: 100%; margin: 8px 0;" 
+           placeholder="Загрузка ИНН из карточки..." readonly>
+
+    <div id="loader" class="loader">
+      <div class="loader-spinner"></div>
+      <div style="margin-top: 8px;">Ищем договоры...</div>
+    </div>
+    
+    <div id="results-container" class="results" style="display: none;"></div>
+    
+    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+      <button id="cancel" class="addon-btn">Закрыть</button>
+      <button id="search" class="addon-btn-primary">Найти</button>
+    </div>
+  </div>
+  
+  <!-- Подключаем скрипт логики. Путь: ../js/ (на уровень вверх и в папку js) -->
+  <script src="../js/link-contract.js"></script>
+</body>
+</html>
