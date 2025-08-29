@@ -1,6 +1,6 @@
 {
   "title": "Связывание с договором по ИНН",
-  "baseUrl": "https://<ВАШ_ЛОГИН_НА_GITHUB>.github.io/<НАЗВАНИЕ_РЕПОЗИТОРИЯ>/",
+  "baseUrl": "https://github.com/uteamdev787/kaiten_connection_uni/",
   "entrypoints": [
     {
       "type": "card-button",
