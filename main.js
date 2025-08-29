@@ -1,148 +1,150 @@
-// Инициализация аддона для связывания карточек по ИНН
+// Аддон для связывания счетов с договорами по ИНН
 kaiten.init((api) => {
 
-  // Карта связей: ID пространства, где ищем -> ID пространства, где связываем
-  const spaceMap = {
-    517319: 517325, // В пространстве 517319 ищем карточки в 517325
-    517314: 532009, // В пространстве 517314 ищем карточки в 532009  
-    517324: 532011  // В пространстве 517324 ищем карточки в 532011
+  // Настройки связывания пространств
+  // Ключ: ID пространства со счетами, Значение: ID пространства с договорами
+  const SPACE_CONNECTIONS = {
+    517319: 517325, // Счета в пространстве 517319 → Договора в пространстве 517325
+    517314: 532009, // Счета в пространстве 517314 → Договора в пространстве 532009  
+    517324: 532011  // Счета в пространстве 517324 → Договора в пространстве 532011
   };
 
-  // ID кастомного поля для ИНН
-  const innFieldId = 415447;
+  // ID кастомного поля с ИНН
+  const INN_FIELD_ID = 415447;
 
-  // Глобальная переменная для хранения найденных карточек
-  let lastFoundCards = [];
-  let lastCurrentCard = null;
+  // Функция поиска договоров по ИНН
+  async function findContractsByINN(currentCard, innValue) {
+    console.log('🔍 Поиск договоров по ИНН:', innValue);
 
-  // Функция поиска и связывания карточек
-  async function findAndLinkCards(currentCard, innValue, showUI = true) {
-    console.log('=== ПОИСК КАРТОЧЕК ПО ИНН ===');
-    console.log('Current card:', currentCard);
-    console.log('INN value:', innValue);
-
-    // Определяем пространство для поиска
+    // Определяем пространство для поиска договоров
     const currentSpaceId = currentCard.space?.id || currentCard.space_id;
-    const searchSpaceId = spaceMap[currentSpaceId];
+    const contractsSpaceId = SPACE_CONNECTIONS[currentSpaceId];
     
-    if (!searchSpaceId) {
-      if (showUI) {
-        kaiten.ui.showNotification({
-          type: 'info',
-          message: `Пространство ${currentSpaceId} не настроено для поиска связанных карточек.`
-        });
-      }
-      return;
+    if (!contractsSpaceId) {
+      console.log('❌ Пространство не настроено для поиска договоров');
+      kaiten.ui.showNotification({
+        type: 'warning',
+        message: `Для пространства ${currentSpaceId} не настроен поиск договоров`
+      });
+      return [];
     }
 
+    console.log(`📋 Ищем в пространстве договоров: ${contractsSpaceId}`);
+
     try {
-      // Ищем карточки с таким же ИНН в целевом пространстве
-      const foundCards = await api.cards.find({
-        space_id: searchSpaceId,
+      // Поиск карточек договоров с таким же ИНН
+      const contracts = await api.cards.find({
+        space_id: contractsSpaceId,
         custom_fields: [{
-          field_id: innFieldId,
+          field_id: INN_FIELD_ID,
           value: innValue
         }]
       });
 
-      console.log('Found cards:', foundCards);
-
-      // Исключаем текущую карточку
-      const validCards = foundCards.filter(card => card.id !== currentCard.id);
+      // Исключаем текущую карточку из результатов
+      const validContracts = contracts.filter(card => card.id !== currentCard.id);
       
-      // Сохраняем результаты глобально
-      lastFoundCards = validCards;
-      lastCurrentCard = currentCard;
-
-      if (validCards.length === 0) {
-        if (showUI) {
-          kaiten.ui.showNotification({
-            type: 'info',
-            message: `Карточки с ИНН ${innValue} не найдены в пространстве ${searchSpaceId}.`
-          });
-        }
-        return;
-      }
-
-      if (showUI) {
-        // Показываем результаты через выбор или автосвязывание
-        if (validCards.length === 1) {
-          // Автоматически связываем единственную карточку
-          const parentCard = validCards[0];
-          await linkCards(currentCard.id, parentCard.id, parentCard.title);
-        } else {
-          // Показываем выбор через модальное окно
-          const choices = validCards.map(card => ({
-            id: card.id,
-            label: `#${card.id} - ${card.title}`
-          }));
-
-          const selectedChoice = await kaiten.ui.showChoice({
-            title: `Найдено ${validCards.length} карточек с ИНН ${innValue}`,
-            message: 'Выберите карточку для установки связи:',
-            choices: choices
-          });
-
-          if (selectedChoice) {
-            const parentCard = validCards.find(card => card.id === selectedChoice.id);
-            await linkCards(currentCard.id, parentCard.id, parentCard.title);
-          }
-        }
-      }
-
-      return validCards;
+      console.log(`✅ Найдено договоров: ${validContracts.length}`);
+      return validContracts;
 
     } catch (error) {
-      console.error('Ошибка при поиске карточек:', error);
-      if (showUI) {
-        kaiten.ui.showNotification({
-          type: 'error',
-          message: 'Произошла ошибка при поиске карточек.'
-        });
-      }
+      console.error('❌ Ошибка поиска договоров:', error);
+      kaiten.ui.showNotification({
+        type: 'error',
+        message: 'Ошибка при поиске договоров. Попробуйте еще раз.'
+      });
+      return [];
     }
   }
 
-  // Функция установки родительской связи
-  async function linkCards(childId, parentId, parentTitle) {
+  // Функция связывания счета с договором
+  async function linkInvoiceToContract(invoiceId, contractId, contractTitle) {
     try {
-      await api.cards.update(childId, {
-        parent_id: parentId
+      console.log(`🔗 Связываем счет #${invoiceId} с договором #${contractId}`);
+      
+      await api.cards.update(invoiceId, {
+        parent_id: contractId
       });
 
       kaiten.ui.showNotification({
         type: 'success',
-        message: `Карточка #${parentId} "${parentTitle}" установлена как родительская.`
+        message: `✅ Счет привязан к договору "${contractTitle}" (#${contractId})`
       });
+
     } catch (error) {
-      console.error('Ошибка при установке связи:', error);
+      console.error('❌ Ошибка связывания:', error);
       kaiten.ui.showNotification({
         type: 'error',
-        message: 'Не удалось установить родительскую связь.'
+        message: 'Не удалось привязать счет к договору. Попробуйте вручную.'
       });
     }
   }
 
-  // Автоматическое срабатывание при изменении поля ИНН
-  kaiten.on('card.field_changed', (payload) => {
-    console.log('=== СОБЫТИЕ ИЗМЕНЕНИЯ ПОЛЯ ===');
-    
-    // Проверяем, что изменилось именно поле ИНН
-    const changedFieldId = payload.field?.id || payload.property_id || payload.field_id;
-    
-    if (changedFieldId !== innFieldId || !payload.value) {
+  // Функция показа результатов поиска пользователю
+  async function showContractSelectionDialog(invoice, contracts, innValue) {
+    if (contracts.length === 0) {
+      kaiten.ui.showNotification({
+        type: 'info',
+        message: `❌ Договоры с ИНН ${innValue} не найдены. Проверьте корректность ИНН.`
+      });
       return;
     }
 
-    findAndLinkCards(payload.card, payload.value, true);
+    if (contracts.length === 1) {
+      // Если найден только один договор - автоматически связываем
+      const contract = contracts[0];
+      await linkInvoiceToContract(invoice.id, contract.id, contract.title);
+      return;
+    }
+
+    // Если найдено несколько договоров - показываем выбор
+    const contractChoices = contracts.map(contract => ({
+      id: contract.id,
+      label: `#${contract.id} - ${contract.title}`
+    }));
+
+    const selectedChoice = await kaiten.ui.showChoice({
+      title: `Найдено ${contracts.length} договоров с ИНН ${innValue}`,
+      message: 'Выберите договор для привязки к этому счету:',
+      choices: contractChoices
+    });
+
+    if (selectedChoice) {
+      const selectedContract = contracts.find(c => c.id === selectedChoice.id);
+      await linkInvoiceToContract(invoice.id, selectedContract.id, selectedContract.title);
+    }
+  }
+
+  // Основная функция обработки
+  async function processInvoiceINN(card, innValue) {
+    console.log('💰 Обработка счета с ИНН:', innValue);
+    
+    // Ищем договоры
+    const contracts = await findContractsByINN(card, innValue);
+    
+    // Показываем результаты пользователю
+    await showContractSelectionDialog(card, contracts, innValue);
+  }
+
+  // Автоматическое срабатывание при изменении поля ИНН
+  kaiten.on('card.field_changed', (payload) => {
+    const changedFieldId = payload.field?.id || payload.property_id || payload.field_id;
+    
+    // Проверяем, что изменилось именно поле ИНН и оно не пустое
+    if (changedFieldId !== INN_FIELD_ID || !payload.value || !payload.value.trim()) {
+      return;
+    }
+
+    console.log('📝 ИНН изменен в карточке:', payload.card.id);
+    processInvoiceINN(payload.card, payload.value.trim());
   });
 
   // API для вызова из кнопки
-  window.kaitenConnectByINN = {
-    searchCards: findAndLinkCards,
-    getLastResults: () => ({ cards: lastFoundCards, currentCard: lastCurrentCard }),
-    linkCard: linkCards
+  window.invoiceContractLinker = {
+    findAndLink: processInvoiceINN,
+    getSpaceConnections: () => SPACE_CONNECTIONS,
+    getInnFieldId: () => INN_FIELD_ID
   };
 
-  console.log('=== АДДОН СВЯЗЫВАНИЯ ПО ИНН ИНИЦИАЛИЗИРОВАН ===');
+  console.log('✅ Система связывания счетов с договорами запущена');
 });
