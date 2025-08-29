@@ -5,20 +5,17 @@ Addon.initialize({
     buttons.push({
       text: '🔗 Связать по ИНН',
       callback: async (buttonContext) => {
-        // ===== ГЛАВНОЕ ИЗМЕНЕНИЕ ЗДЕСЬ =====
-        // Формируем URL с параметрами
-        const cardId = buttonContext.card_id;
-        const boardId = buttonContext.board_id;
-        const popupUrl = `./popup_v2.html?card_id=${cardId}&board_id=${boardId}`;
-
+        console.log('Button context:', buttonContext); // Отладочная информация
+        
+        // Простое открытие popup без параметров в URL
+        // Данные будут получены через iframe.getContext()
         return buttonContext.openPopup({
           type: 'iframe',
           title: 'Поиск и установка родительской карточки',
-          url: popupUrl, // Используем новый URL
+          url: './popup_v2.html', // Убираем параметры из URL
           height: 250,
           width: 600
         });
-        // ===================================
       }
     });
 
