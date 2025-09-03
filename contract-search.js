@@ -187,19 +187,27 @@ cancelBtn.addEventListener('click', () => {
 
 linkBtn.addEventListener('click', linkToContract);
 
-// Инициализация при загрузке
+// Инициализация при загрузке popup
 iframe.render(async () => {
   try {
-    // Получаем переданные аргументы
-    const args = await iframe.getArgs();
-    console.log('📥 Полученные аргументы:', args);
+    // Получаем текущую карточку напрямую в контексте popup
+    currentCard = await iframe.getCard();
     
-    if (!args || !args.currentCard || !args.innValue) {
-      throw new Error('Недостаточно данных для поиска договоров');
+    if (!currentCard) {
+      throw new Error('Не удалось получить данные карточки');
     }
+
+    // Извлекаем ИНН из свойств карточки
+    const innKey = `id_${innFieldId}`;
+    innValue = currentCard.properties && currentCard.properties[innKey];
     
-    currentCard = args.currentCard;
-    innValue = args.innValue;
+    if (!innValue || innValue.trim().length === 0) {
+      throw new Error('Поле ИНН не заполнено в карточке');
+    }
+
+    innValue = innValue.trim();
+    console.log('📥 Получена карточка:', currentCard.id);
+    console.log('🎯 ИНН для поиска:', innValue);
     
     // Отображаем ИНН
     innBadge.textContent = `ИНН: ${innValue}`;
