@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://files.kaiten.ru/web-sdk/v1.min.js"></script>
+  <link href="https://files.kaiten.ru/web-sdk/v1.min.css" rel="stylesheet" />
+  <style>
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--addon-divider);
+    }
+    
+    .inn-badge {
+      display: inline-block;
+      background: linear-gradient(45deg, var(--addon-primary-color), #4f46e5);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 16px;
+      margin: 8px 0;
+    }
+    
+    .step-indicator {
+      background: var(--addon-background-level2);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    
+    .step {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    
+    .step:last-child { margin-bottom: 0; }
+    
+    .step-number {
+      background: var(--addon-primary-color);
+      color: white;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px 20px;
+    }
+    
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--addon-background-level2);
+      border-top: 3px solid var(--addon-primary-color);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .contracts-list {
+      margin: 20px 0;
+    }
+    
+    .contract-card {
+      background: white;
+      border: 2px solid var(--addon-divider);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    
+    .contract-card:hover {
+      border-color: var(--addon-primary-color);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      transform: translateY(-2px);
+    }
+    
+    .contract-card.selected {
+      border-color: var(--addon-primary-color);
+      background: linear-gradient(to right, var(--addon-primary-color)10, transparent);
+    }
+    
+    .contract-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    
+    .contract-title {
+      font-weight: 600;
+      font-size: 16px;
+      color: var(--addon-text-primary-color);
+      line-height: 1.3;
+      flex: 1;
+      margin-right: 12px;
+    }
+    
+    .contract-id {
+      background: var(--addon-background-level2);
+      color: var(--addon-text-secondary-color);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    
+    .contract-description {
+      color: var(--addon-text-secondary-color);
+      font-size: 14px;
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    
+    .contract-meta {
+      font-size: 12px;
+      color: var(--addon-text-secondary-color);
+      display: flex;
+      gap: 16px;
+    }
+    
+    .no-results {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--addon-text-secondary-color);
+    }
+    
+    .no-results-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.6;
+    }
+    
+    .actions {
+      border-top: 1px solid var(--addon-divider);
+      padding-top: 20px;
+      margin-top: 20px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    
+    .btn-link {
+      background: var(--addon-primary-color);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+      flex: 1;
+      max-width: 200px;
+    }
+    
+    .btn-link:disabled {
+      background: var(--addon-background-level2);
+      color: var(--addon-text-secondary-color);
+      cursor: not-allowed;
+    }
+    
+    .btn-link:not(:disabled):hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .btn-cancel {
+      background: transparent;
+      border: 2px solid var(--addon-divider);
+      color: var(--addon-text-secondary-color);
+      padding: 10px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    
+    .btn-cancel:hover {
+      border-color: var(--addon-text-secondary-color);
+    }
+  </style>
+</head>
+<body>
+  <div id="searchInterface">
+    <!-- Заголовок -->
+    <div class="header">
+      <h2 style="margin: 0 0 8px 0; color: var(--addon-text-primary-color);">
+        🔗 Привязка счета к договору
+      </h2>
+      <div class="inn-badge" id="innBadge">ИНН: -</div>
+    </div>
+
+    <!-- Индикатор процесса -->
+    <div class="step-indicator" id="processSteps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <div>Вы заполнили ИНН и нажали кнопку поиска</div>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div>Система ищет договоры с таким же ИНН</div>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div>Выберите подходящий договор для привязки</div>
+      </div>
+    </div>
+
+    <!-- Загрузка -->
+    <div id="loadingState" class="loading">
+      <div class="spinner"></div>
+      <div style="color: var(--addon-text-primary-color); font-weight: 500;">
+        Ищем договоры по указанному ИНН...
+      </div>
+      <div style="font-size: 12px; color: var(--addon-text-secondary-color); margin-top: 8px;">
+        Это займет несколько секунд
+      </div>
+    </div>
+
+    <!-- Результаты поиска -->
+    <div id="resultsState" style="display: none;">
+      <div class="contracts-list" id="contractsList">
+        <!-- Карточки договоров добавляются динамически -->
+      </div>
+    </div>
+
+    <!-- Отсутствие результатов -->
+    <div id="noResultsState" class="no-results" style="display: none;">
+      <div class="no-results-icon">📄</div>
+      <div style="font-weight: 600; margin-bottom: 8px;">
+        Договоры не найдены
+      </div>
+      <div style="line-height: 1.5;">
+        Договоры с указанным ИНН не найдены.<br>
+        Проверьте правильность ИНН или создайте новый договор.
+      </div>
+    </div>
+
+    <!-- Действия -->
+    <div class="actions">
+      <button id="cancelBtn" class="btn-cancel">
+        Отмена
+      </button>
+      <button id="linkBtn" class="btn-link" disabled>
+        🔗 Привязать к выбранному договору
+      </button>
+    </div>
+  </div>
+
+  <script src="contract-search.js"></script>
+</body>
+</html>

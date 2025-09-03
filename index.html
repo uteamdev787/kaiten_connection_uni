@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://files.kaiten.ru/web-sdk/v1.min.js"></script>
+  <link href="https://files.kaiten.ru/web-sdk/v1.min.css" rel="stylesheet" />
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      min-height: 100vh;
+      margin: 0;
+    }
+    
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      color: #333;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    
+    .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    
+    .title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #2d3748;
+    }
+    
+    .subtitle {
+      color: #718096;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    
+    .feature {
+      background: linear-gradient(135deg, #667eea20, #764ba220);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      border-left: 4px solid #667eea;
+    }
+    
+    .feature-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #2d3748;
+    }
+    
+    .workflow {
+      background: #f7fafc;
+      border-radius: 12px;
+      padding: 24px;
+      margin-top: 24px;
+    }
+    
+    .step {
+      display: flex;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    
+    .step:last-child { margin-bottom: 0; }
+    
+    .step-number {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      margin-right: 16px;
+      flex-shrink: 0;
+    }
+    
+    .step-text {
+      color: #2d3748;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="icon">🔗</div>
+      <h1 class="title">Связывание счетов с договорами</h1>
+      <p class="subtitle">
+        Автоматически находит и привязывает счета к договорам по ИНН компании
+      </p>
+    </div>
+
+    <div class="feature">
+      <div class="feature-title">⚡ Автоматическая привязка</div>
+      <div>При заполнении ИНН в карточке счета система автоматически ищет соответствующие договоры и предлагает установить связь.</div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-title">🎯 Умный поиск</div>
+      <div>Поиск выполняется в настроенных пространствах договоров. Если найден один договор - связь устанавливается автоматически.</div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-title">🚀 Минимум действий</div>
+      <div>Просто заполните ИНН - остальное сделает аддон. При необходимости используйте кнопку "Привязать к договору".</div>
+    </div>
+
+    <div class="workflow">
+      <h3 style="margin: 0 0 20px 0; color: #2d3748;">Как это работает:</h3>
+      
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-text">
+          <strong>Заполните ИНН в карточке</strong><br>
+          Укажите ИНН компании в кастомном поле карточки счета
+        </div>
+      </div>
+      
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-text">
+          <strong>Нажмите "Привязать к договору"</strong><br>
+          Система найдет все договоры с указанным ИНН
+        </div>
+      </div>
+      
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-text">
+          <strong>Выберите нужный договор</strong><br>
+          Из списка найденных выберите подходящий договор
+        </div>
+      </div>
+      
+      <div class="step">
+        <div class="step-number">✓</div>
+        <div class="step-text">
+          <strong>Подтвердите привязку</strong><br>
+          Счет будет связан с выбранным договором
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Подключение основной логики -->
+  <script src="main.js"></script>
+  
+  <!-- Подключение кнопок для карточек -->
+  <script src="client.js"></script>
+</body>
+</html>
