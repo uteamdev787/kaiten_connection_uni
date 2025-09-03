@@ -134,7 +134,7 @@ async function searchContracts() {
   }
 }
 
-// Функция связывания счета с договором
+// Функция связывания счета с договором (счет становится дочерним к договору)
 async function linkToContract() {
   if (!selectedContractId) {
     iframe.showSnackbar('Выберите договор для привязки', 'warning');
@@ -143,14 +143,17 @@ async function linkToContract() {
 
   try {
     linkBtn.disabled = true;
-    linkBtn.textContent = '⏳ Привязываем...';
+    linkBtn.textContent = 'Привязываем...';
     
-    // Устанавливаем родительскую связь
+    console.log(`Связывание: договор #${selectedContractId} <- счет #${currentCard.id} (как дочерний)`);
+    
+    // Добавляем текущую карточку как дочернюю к выбранному договору
+    // Используем API добавления дочерних карточек согласно документации
     await iframe.requestWithContext({
-      method: 'PUT',
-      url: `/cards/${currentCard.id}`,
+      method: 'POST',
+      url: `/cards/${selectedContractId}/children`,
       data: {
-        parent_id: selectedContractId
+        card_id: currentCard.id
       }
     });
     
@@ -158,25 +161,32 @@ async function linkToContract() {
     const selectedContract = foundContracts.find(c => c.id === selectedContractId);
     const contractTitle = selectedContract ? selectedContract.title : `#${selectedContractId}`;
     
-    iframe.showSnackbar(`✅ Счет успешно привязан к договору "${contractTitle}"!`, 'success');
+    iframe.showSnackbar(`Счет успешно привязан к договору "${contractTitle}"!`, 'success');
     iframe.closePopup();
     
   } catch (error) {
-    console.error('❌ Ошибка связывания:', error);
+    console.error('Ошибка связывания:', error);
     
     // Показываем детальную ошибку
     let errorMessage = 'Не удалось привязать счет к договору';
-    if (error.response && error.response.status === 403) {
-      errorMessage = 'Недостаточно прав для изменения карточки';
-    } else if (error.response && error.response.status === 404) {
-      errorMessage = 'Карточка не найдена';
+    if (error.response) {
+      const status = error.response.status;
+      if (status === 403) {
+        errorMessage = 'Недостаточно прав для изменения карточки';
+      } else if (status === 404) {
+        errorMessage = 'Договор не найден';
+      } else if (status === 400) {
+        errorMessage = 'Неверные данные для связывания';
+      } else {
+        errorMessage += ` (HTTP ${status})`;
+      }
     }
     
     iframe.showSnackbar(errorMessage, 'error');
     
     // Восстанавливаем кнопку
     linkBtn.disabled = false;
-    linkBtn.textContent = '🔗 Привязать к выбранному договору';
+    linkBtn.textContent = 'Привязать к выбранному договору';
   }
 }
 
