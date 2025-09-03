@@ -208,16 +208,45 @@ iframe.render(async () => {
     innValue = innValue.trim();
     console.log('📥 Получена карточка:', currentCard.id);
     console.log('🎯 ИНН для поиска:', innValue);
+    console.log('📋 Полные данные карточки:', JSON.stringify(currentCard, null, 2));
     
     // Отображаем ИНН
     innBadge.textContent = `ИНН: ${innValue}`;
     
-    // Определяем целевое пространство
-    const currentSpaceId = currentCard.space?.id || currentCard.space_id;
+    // Пытаемся определить пространство разными способами
+    let currentSpaceId = currentCard.space?.id || currentCard.space_id;
+    
+    // Если прямо пространство не найдено, пытаемся через board
+    if (!currentSpaceId && currentCard.board) {
+      currentSpaceId = currentCard.board.space?.id || currentCard.board.space_id;
+      console.log('📍 Пространство найдено через board:', currentSpaceId);
+    }
+    
+    // Статический маппинг board_id -> space_id как резерв
+    if (!currentSpaceId && currentCard.board_id) {
+      const boardToSpaceMap = {
+        1183281: 517319, // Пример: board_id -> space_id (нужно настроить под ваши данные)
+        // Добавьте другие маппинги здесь при необходимости
+      };
+      currentSpaceId = boardToSpaceMap[currentCard.board_id];
+      console.log('📍 Пространство найдено через board_id:', currentSpaceId);
+    }
+    
+    console.log('🏢 Определенное пространство:', currentSpaceId);
+    console.log('🔍 Доступные ключи карточки:', Object.keys(currentCard));
+    
     const contractsSpaceId = spaceMap[currentSpaceId];
     
     if (!contractsSpaceId) {
-      throw new Error(`Поиск договоров для пространства ${currentSpaceId} не настроен`);
+      // Показываем больше информации для отладки
+      const availableSpaces = Object.keys(spaceMap).join(', ');
+      const debugInfo = `
+Текущее пространство: ${currentSpaceId || 'НЕ ОПРЕДЕЛЕНО'}
+Настроенные пространства: ${availableSpaces}
+Board ID: ${currentCard.board_id || 'НЕ ОПРЕДЕЛЕН'}
+      `.trim();
+      
+      throw new Error(`Поиск договоров для пространства ${currentSpaceId || 'НЕ ОПРЕДЕЛЕНО'} не настроен.\n\n${debugInfo}`);
     }
     
     console.log(`🎯 Поиск договоров: пространство ${currentSpaceId} -> ${contractsSpaceId}`);
