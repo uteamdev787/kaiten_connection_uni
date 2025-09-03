@@ -206,18 +206,6 @@ kaiten.init((api) => {
     getSpaceMapping: () => spaceMap
   };
 
-  // Вспомогательная функция для получения текущего ИНН из карточки
-  async function getCurrentINN(cardId) {
-    try {
-      const card = await api.cards.get(cardId);
-      const innKey = `id_${innFieldId}`;
-      return card.properties && card.properties[innKey];
-    } catch (error) {
-      console.error('Ошибка получения ИНН:', error);
-      return null;
-    }
-  }
-
   console.log('🚀 Аддон связывания счетов с договорами по ИНН запущен (ручной режим)');
   console.log('📋 Настроенные пространства:', Object.keys(spaceMap).join(', '));
   console.log('🎯 Режим работы: поиск только по кнопке пользователя');

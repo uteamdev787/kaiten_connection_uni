@@ -33,11 +33,7 @@ Addon.initialize({
             title: `🔗 Выбор договора по ИНН: ${innValue.trim()}`,
             url: './contract-search.html',
             height: 650,
-            width: 850,
-            args: {
-              currentCard: currentCard,
-              innValue: innValue.trim()
-            }
+            width: 850
           });
           
         } catch (error) {
