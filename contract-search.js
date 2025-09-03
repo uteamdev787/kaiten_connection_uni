@@ -28,220 +28,170 @@ const searchInterface = document.getElementById('searchInterface');
 // Глобальное состояние
 let currentCard = null;
 let innValue = null;
-let foundContracts = [];
-let selectedContractId = null;
-let searchConfig = null;
+let targetInfo = null;
+let manualContractId = null;
 
-// Функция отображения найденных договоров
-function displayContracts(contracts) {
-  contractsList.innerHTML = '';
+// Функция создания интерфейса ручного ввода
+function createManualInterface() {
+  // Скрываем загрузку
+  loadingState.style.display = 'none';
   
-  contracts.forEach(contract => {
-    const contractCard = document.createElement('div');
-    contractCard.className = 'contract-card';
-    contractCard.dataset.contractId = contract.id;
-    
-    // Получаем ИНН из properties для отображения
-    const contractINN = contract.properties && contract.properties[`id_${innFieldId}`];
-    
-    // Обрезаем описание для компактности
-    const description = contract.description ? 
-      (contract.description.length > 150 ? 
-        contract.description.substring(0, 150) + '...' : 
-        contract.description) : 
-      'Описание отсутствует';
-    
-    contractCard.innerHTML = `
-      <div class="contract-header">
-        <div class="contract-title">${contract.title}</div>
-        <div class="contract-id">#${contract.id}</div>
-      </div>
-      <div class="contract-description">${description}</div>
-      <div class="contract-meta">
-        <span>🏢 ИНН: ${contractINN || 'Не указан'}</span>
-        <span>📁 Доска: ${contract.board_id || 'Неизвестно'}</span>
-        <span>📅 ${contract.updated ? new Date(contract.updated).toLocaleDateString('ru-RU') : 'Неизвестно'}</span>
-      </div>
-    `;
-    
-    // Обработчик выбора договора
-    contractCard.addEventListener('click', () => {
-      // Снимаем выделение с других карточек
-      document.querySelectorAll('.contract-card').forEach(card => {
-        card.classList.remove('selected');
-      });
+  // Показываем интерфейс ручного поиска
+  resultsState.style.display = 'block';
+  
+  const targetDisplay = targetInfo.method === 'board' ? 
+    `доске ${targetInfo.targetId}` : 
+    `пространстве ${targetInfo.targetId}`;
+  
+  contractsList.innerHTML = `
+    <div style="background: var(--addon-background-level2); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 16px 0; color: var(--addon-text-primary-color); text-align: center;">
+        🔍 Ручной поиск договоров
+      </h3>
       
-      // Выделяем выбранную карточку
-      contractCard.classList.add('selected');
-      selectedContractId = contract.id;
+      <div style="background: white; padding: 16px; border-radius: 8px; margin-bottom: 16px; border-left: 4px solid var(--addon-primary-color);">
+        <div style="font-weight: 600; margin-bottom: 8px;">📋 Инструкция по поиску:</div>
+        <ol style="margin: 0; padding-left: 20px; line-height: 1.6;">
+          <li>Откройте <strong>Kaiten</strong> в новой вкладке</li>
+          <li>Перейдите на ${targetDisplay}</li>
+          <li>Найдите карточки с <strong>ИНН: ${innValue}</strong></li>
+          <li>Скопируйте ID нужного договора (число после #)</li>
+          <li>Вставьте ID в поле ниже и нажмите "Привязать"</li>
+        </ol>
+      </div>
       
-      // Активируем кнопку связывания
-      linkBtn.disabled = false;
-      linkBtn.textContent = `Привязать к договору #${contract.id}`;
-    });
-    
-    contractsList.appendChild(contractCard);
-  });
+      <div style="background: #f0f9ff; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+        <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">🎯 Что искать:</div>
+        <div style="font-family: monospace; background: white; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+          ИНН: <strong>${innValue}</strong>
+        </div>
+      </div>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-weight: 600; margin-bottom: 8px;">
+          ID договора для привязки:
+        </label>
+        <input 
+          type="number" 
+          id="contractIdInput" 
+          placeholder="Например: 12345678"
+          style="width: 100%; padding: 12px; border: 2px solid var(--addon-divider); border-radius: 8px; font-size: 16px;"
+        >
+        <div style="font-size: 12px; color: var(--addon-text-secondary-color); margin-top: 4px;">
+          Введите ID договора (только цифры)
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <button 
+          id="openTargetBtn" 
+          style="flex: 1; background: var(--addon-primary-color); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600;"
+        >
+          🔗 Открыть ${targetDisplay}
+        </button>
+        
+        <button 
+          id="validateBtn" 
+          style="background: #10b981; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 600;"
+        >
+          ✓ Проверить
+        </button>
+      </div>
+    </div>
+  `;
+  
+  // Добавляем обработчики
+  setupManualHandlers();
 }
 
-// Функция определения конфигурации поиска
-function determineSearchConfig(card) {
-  console.log('Определяем конфигурацию поиска для карточки:', card.id);
-  console.log('Board ID карточки:', card.board_id);
-  console.log('Space ID карточки:', card.space_id);
+// Настройка обработчиков ручного интерфейса
+function setupManualHandlers() {
+  const contractIdInput = document.getElementById('contractIdInput');
+  const openTargetBtn = document.getElementById('openTargetBtn');
+  const validateBtn = document.getElementById('validateBtn');
   
-  // Проверяем наличие space_id и его маппинг
-  if (card.space_id && spaceMap[card.space_id]) {
-    const targetSpaceId = spaceMap[card.space_id];
-    console.log(`Используем маппинг пространств: ${card.space_id} -> ${targetSpaceId}`);
-    return {
-      method: 'space',
-      currentId: card.space_id,
-      targetId: targetSpaceId,
-      searchBy: 'space_id'
-    };
-  }
-  
-  // Используем board_id как основной метод
-  if (card.board_id && boardMap[card.board_id]) {
-    const targetBoardId = boardMap[card.board_id];
-    console.log(`Используем маппинг досок: ${card.board_id} -> ${targetBoardId}`);
-    return {
-      method: 'board',
-      currentId: card.board_id,
-      targetId: targetBoardId,
-      searchBy: 'board_id'
-    };
-  }
-  
-  // Генерируем подробную ошибку
-  const debugInfo = {
-    cardId: card.id,
-    spaceId: card.space_id,
-    boardId: card.board_id,
-    availableSpaces: Object.keys(spaceMap),
-    availableBoards: Object.keys(boardMap),
-    allCardKeys: Object.keys(card).slice(0, 20) // Первые 20 ключей
-  };
-  
-  console.error('Отладочная информация:', debugInfo);
-  
-  throw new Error(`Не найден маппинг для карточки.\nSpace ID: ${card.space_id || 'нет'}\nBoard ID: ${card.board_id || 'нет'}\n\nДоступные пространства: ${Object.keys(spaceMap).join(', ')}\nДоступные доски: ${Object.keys(boardMap).join(', ')}`);
-}
-
-// Функция поиска договоров с упрощенным подходом
-async function searchContracts() {
-  try {
-    console.log('Начинаем поиск договоров');
-    console.log('Конфигурация поиска:', searchConfig);
+  // Валидация ввода
+  contractIdInput.addEventListener('input', () => {
+    const value = contractIdInput.value.trim();
+    manualContractId = value ? parseInt(value) : null;
+    linkBtn.disabled = !manualContractId || manualContractId <= 0;
     
-    // Сначала получаем все карточки с целевой доски/пространства
-    const searchParams = {};
-    searchParams[searchConfig.searchBy] = searchConfig.targetId;
-    
-    console.log('Параметры API запроса:', searchParams);
-
-    // Получаем все карточки
-    const allCards = await iframe.requestWithContext({
-      method: 'GET',
-      url: '/cards',
-      params: searchParams
-    });
-
-    console.log(`Получено карточек с ${searchConfig.searchBy} ${searchConfig.targetId}:`, allCards.length);
-    
-    // Фильтруем карточки по ИНН локально
-    const innKey = `id_${innFieldId}`;
-    const contractsWithINN = allCards.filter(card => {
-      // Проверяем наличие поля ИНН и его значение
-      const cardINN = card.properties && card.properties[innKey];
-      const matches = cardINN && cardINN.toString().trim() === innValue;
-      
-      if (matches) {
-        console.log(`Найден договор с ИНН: #${card.id} - ${card.title}`);
-      }
-      
-      return matches && card.id !== currentCard.id; // Исключаем текущую карточку
-    });
-
-    foundContracts = contractsWithINN;
-    
-    console.log(`Отфильтровано договоров с ИНН ${innValue}: ${foundContracts.length}`);
-    
-    // Скрываем загрузку
-    loadingState.style.display = 'none';
-    
-    if (foundContracts.length === 0) {
-      // Показываем дополнительную информацию для отладки
-      const totalCards = allCards.length;
-      const cardsWithProperties = allCards.filter(card => card.properties).length;
-      const cardsWithINN = allCards.filter(card => 
-        card.properties && card.properties[innKey]
-      ).length;
-      
-      console.log(`Отладка поиска ИНН:`);
-      console.log(`- Всего карточек на доске: ${totalCards}`);
-      console.log(`- Карточек с properties: ${cardsWithProperties}`);
-      console.log(`- Карточек с полем ИНН: ${cardsWithINN}`);
-      
-      if (cardsWithINN > 0) {
-        const sampleINNs = allCards
-          .filter(card => card.properties && card.properties[innKey])
-          .slice(0, 5)
-          .map(card => `#${card.id}: "${card.properties[innKey]}"`)
-          .join(', ');
-        console.log(`Примеры ИНН на доске: ${sampleINNs}`);
-      }
-      
-      noResultsState.style.display = 'block';
-      noResultsState.innerHTML = `
-        <div class="no-results-icon">📄</div>
-        <div style="font-weight: 600; margin-bottom: 8px;">
-          Договоры не найдены
-        </div>
-        <div style="line-height: 1.5; margin-bottom: 12px;">
-          Договоры с ИНН "${innValue}" не найдены на доске ${searchConfig.targetId}
-        </div>
-        <div style="font-size: 12px; color: var(--addon-text-secondary-color);">
-          Всего карточек на доске: ${totalCards}<br>
-          Карточек с полем ИНН: ${cardsWithINN}
-        </div>
-      `;
+    if (manualContractId > 0) {
+      linkBtn.textContent = `Привязать к договору #${manualContractId}`;
     } else {
-      resultsState.style.display = 'block';
-      displayContracts(foundContracts);
+      linkBtn.textContent = 'Введите ID договора';
+    }
+  });
+  
+  // Enter в поле ввода
+  contractIdInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && manualContractId > 0) {
+      linkToContract();
+    }
+  });
+  
+  // Открытие целевой доски/пространства
+  openTargetBtn.addEventListener('click', () => {
+    const baseUrl = 'https://pokusaev.kaiten.ru';
+    let targetUrl;
+    
+    if (targetInfo.method === 'board') {
+      targetUrl = `${baseUrl}/board/${targetInfo.targetId}`;
+    } else {
+      targetUrl = `${baseUrl}/space/${targetInfo.targetId}/board`;
     }
     
-    // Подгоняем размер окна
-    iframe.fitSize(searchInterface);
+    window.open(targetUrl, '_blank');
+    iframe.showSnackbar(`Открыта ${targetInfo.method === 'board' ? 'доска' : 'пространство'} для поиска`, 'info');
+  });
+  
+  // Кнопка проверки договора
+  validateBtn.addEventListener('click', async () => {
+    const contractId = contractIdInput.value.trim();
     
-  } catch (error) {
-    console.error('Ошибка поиска договоров:', error);
+    if (!contractId || isNaN(contractId)) {
+      iframe.showSnackbar('Введите корректный ID договора', 'error');
+      return;
+    }
     
-    loadingState.style.display = 'none';
-    noResultsState.style.display = 'block';
+    validateBtn.disabled = true;
+    validateBtn.textContent = 'Проверяем...';
     
-    // Показываем детальную ошибку
-    noResultsState.innerHTML = `
-      <div class="no-results-icon">⚠️</div>
-      <div style="font-weight: 600; margin-bottom: 8px; color: var(--addon-error-color);">
-        Ошибка поиска
-      </div>
-      <div style="line-height: 1.5; margin-bottom: 8px;">
-        ${error.message || 'Не удалось выполнить поиск договоров'}
-      </div>
-      <div style="font-size: 11px; color: var(--addon-text-secondary-color);">
-        Метод: ${searchConfig?.method || 'не определен'}<br>
-        Target ID: ${searchConfig?.targetId || 'не определен'}
-      </div>
-    `;
-  }
+    try {
+      // Пытаемся получить информацию о карточке
+      const contractData = await iframe.requestWithContext({
+        method: 'GET',
+        url: `/cards/${contractId}`
+      });
+      
+      const contractINN = contractData.properties && contractData.properties[`id_${innFieldId}`];
+      
+      if (contractINN && contractINN.toString().trim() === innValue) {
+        iframe.showSnackbar(`Договор #${contractId} найден и подходит!`, 'success');
+        contractIdInput.style.borderColor = '#10b981';
+        linkBtn.disabled = false;
+      } else {
+        iframe.showSnackbar(`Договор найден, но ИНН не совпадает (${contractINN || 'отсутствует'})`, 'warning');
+        contractIdInput.style.borderColor = '#f59e0b';
+      }
+      
+    } catch (error) {
+      console.error('Ошибка проверки договора:', error);
+      iframe.showSnackbar('Договор не найден или нет доступа', 'error');
+      contractIdInput.style.borderColor = '#ef4444';
+    }
+    
+    validateBtn.disabled = false;
+    validateBtn.textContent = '✓ Проверить';
+  });
 }
 
 // Функция связывания счета с договором
 async function linkToContract() {
-  if (!selectedContractId) {
-    iframe.showSnackbar('Выберите договор для привязки', 'warning');
+  const contractId = manualContractId || parseInt(document.getElementById('contractIdInput').value);
+  
+  if (!contractId || contractId <= 0) {
+    iframe.showSnackbar('Введите корректный ID договора', 'warning');
     return;
   }
 
@@ -249,80 +199,124 @@ async function linkToContract() {
     linkBtn.disabled = true;
     linkBtn.textContent = 'Привязываем...';
     
-    console.log(`Связывание: договор #${selectedContractId} <- счет #${currentCard.id}`);
+    console.log(`Связывание: договор #${contractId} <- счет #${currentCard.id}`);
     
-    // Пытаемся связать через добавление дочерней карточки
-    const response = await iframe.requestWithContext({
-      method: 'POST',
-      url: `/cards/${selectedContractId}/children`,
-      data: {
-        card_id: currentCard.id
-      }
-    });
+    let linkSuccess = false;
+    let contractTitle = `#${contractId}`;
     
-    console.log('Результат связывания:', response);
-    
-    // Находим выбранный договор для сообщения
-    const selectedContract = foundContracts.find(c => c.id === selectedContractId);
-    const contractTitle = selectedContract ? selectedContract.title : `#${selectedContractId}`;
-    
-    iframe.showSnackbar(`Счет привязан к договору "${contractTitle}"!`, 'success');
-    iframe.closePopup();
-    
-  } catch (error) {
-    console.error('Ошибка связывания:', error);
-    
-    // Пытаемся альтернативный способ - через parent_id
+    // Способ 1: Добавление как дочерняя карточка
     try {
-      console.log('Пробуем альтернативный способ связывания через parent_id');
+      await iframe.requestWithContext({
+        method: 'POST',
+        url: `/cards/${contractId}/children`,
+        data: {
+          card_id: currentCard.id
+        }
+      });
       
+      linkSuccess = true;
+      console.log('Связывание через children API успешно');
+      
+    } catch (childError) {
+      console.log('Children API не сработал, пробуем parent_id');
+      
+      // Способ 2: Установка parent_id
       await iframe.requestWithContext({
         method: 'PUT',
         url: `/cards/${currentCard.id}`,
         data: {
-          parent_id: selectedContractId
+          parent_id: contractId
         }
       });
       
-      const selectedContract = foundContracts.find(c => c.id === selectedContractId);
-      const contractTitle = selectedContract ? selectedContract.title : `#${selectedContractId}`;
-      
-      iframe.showSnackbar(`Счет привязан к договору "${contractTitle}" (через parent_id)!`, 'success');
-      iframe.closePopup();
-      
-    } catch (secondError) {
-      console.error('Альтернативное связывание тоже не сработало:', secondError);
-      
-      // Показываем ошибку пользователю
-      let errorMessage = 'Не удалось привязать счет к договору';
-      
-      if (error.response) {
-        const status = error.response.status;
-        switch (status) {
-          case 403:
-            errorMessage = 'Недостаточно прав для изменения карточек';
-            break;
-          case 404:
-            errorMessage = 'Договор не найден';
-            break;
-          case 400:
-            errorMessage = 'Неверный формат данных';
-            break;
-          case 409:
-            errorMessage = 'Связь уже существует';
-            break;
-          default:
-            errorMessage += ` (HTTP ${status})`;
-        }
-      }
-      
-      iframe.showSnackbar(errorMessage, 'error');
-      
-      // Восстанавливаем кнопку
-      linkBtn.disabled = false;
-      linkBtn.textContent = 'Привязать к выбранному договору';
+      linkSuccess = true;
+      console.log('Связывание через parent_id успешно');
     }
+    
+    if (linkSuccess) {
+      iframe.showSnackbar(`Счет успешно привязан к договору ${contractTitle}!`, 'success');
+      
+      // Закрываем popup через небольшую задержку
+      setTimeout(() => {
+        iframe.closePopup();
+      }, 1500);
+    }
+    
+  } catch (error) {
+    console.error('Все способы связывания не сработали:', error);
+    
+    // Показываем инструкцию для ручного связывания
+    let errorMessage = 'Автоматическое связывание не удалось. ';
+    
+    if (error.response) {
+      const status = error.response.status;
+      switch (status) {
+        case 403:
+          errorMessage += 'Недостаточно прав.';
+          break;
+        case 404:
+          errorMessage += 'Договор не найден.';
+          break;
+        default:
+          errorMessage += `Ошибка ${status}.`;
+      }
+    }
+    
+    // Показываем инструкцию для ручного связывания
+    const manualInstructions = `
+ИНСТРУКЦИЯ РУЧНОГО СВЯЗЫВАНИЯ:
+
+1. Откройте карточку счета #${currentCard.id}
+2. Найдите поле "Родительская карточка" или "Parent Card"  
+3. Введите ID: ${contractId}
+4. Сохраните изменения
+
+Прямая ссылка для редактирования:
+https://pokusaev.kaiten.ru/card/${currentCard.id}
+    `.trim();
+    
+    // Копируем инструкции в буфер обмена
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(manualInstructions).then(() => {
+        iframe.showSnackbar(`${errorMessage} Инструкции скопированы в буфер.`, 'info');
+      }).catch(() => {
+        iframe.showSnackbar(errorMessage, 'error');
+      });
+    } else {
+      iframe.showSnackbar(errorMessage, 'error');
+    }
+    
+    // Восстанавливаем кнопку
+    linkBtn.disabled = false;
+    linkBtn.textContent = 'Привязать к договору';
   }
+}
+
+// Функция определения конфигурации поиска
+function determineSearchConfig(card) {
+  console.log('Определение конфигурации поиска');
+  console.log('Board ID:', card.board_id);
+  console.log('Space ID:', card.space_id);
+  
+  // Проверяем маппинг через board_id (основной способ)
+  if (card.board_id && boardMap[card.board_id]) {
+    return {
+      method: 'board',
+      currentId: card.board_id,
+      targetId: boardMap[card.board_id]
+    };
+  }
+  
+  // Проверяем маппинг через space_id
+  if (card.space_id && spaceMap[card.space_id]) {
+    return {
+      method: 'space',
+      currentId: card.space_id,
+      targetId: spaceMap[card.space_id]
+    };
+  }
+  
+  throw new Error(`Маппинг не найден!\nBoard ID: ${card.board_id}\nSpace ID: ${card.space_id}\n\nДоступные доски: ${Object.keys(boardMap).join(', ')}\nДоступные пространства: ${Object.keys(spaceMap).join(', ')}`);
 }
 
 // Обработчики событий
@@ -335,7 +329,7 @@ linkBtn.addEventListener('click', linkToContract);
 // Инициализация при загрузке popup
 iframe.render(async () => {
   try {
-    console.log('=== ИНИЦИАЛИЗАЦИЯ POPUP ПОИСКА ДОГОВОРОВ ===');
+    console.log('=== ИНИЦИАЛИЗАЦИЯ POPUP ===');
     
     // Получаем текущую карточку
     currentCard = await iframe.getCard();
@@ -346,176 +340,50 @@ iframe.render(async () => {
 
     console.log('Карточка:', currentCard.id);
     console.log('Board ID:', currentCard.board_id);
-    console.log('Space ID:', currentCard.space_id);
 
-    // Извлекаем ИНН из свойств карточки
+    // Извлекаем ИНН
     const innKey = `id_${innFieldId}`;
     innValue = currentCard.properties && currentCard.properties[innKey];
-    
-    console.log('Поле ИНН (ключ, значение):', innKey, innValue);
-    console.log('Properties:', currentCard.properties);
     
     if (!innValue || innValue.toString().trim().length === 0) {
       throw new Error('Поле ИНН не заполнено в карточке');
     }
 
     innValue = innValue.toString().trim();
-    console.log('ИНН для поиска:', innValue);
+    console.log('ИНН:', innValue);
     
-    // Отображаем ИНН в интерфейсе
+    // Отображаем ИНН
     innBadge.textContent = `ИНН: ${innValue}`;
     
-    // Определяем конфигурацию поиска
-    searchConfig = determineSearchConfig(currentCard);
-    console.log('Конфигурация поиска:', searchConfig);
+    // Определяем конфигурацию
+    targetInfo = determineSearchConfig(currentCard);
+    console.log('Конфигурация:', targetInfo);
     
-    // Запускаем поиск
-    await searchContracts();
+    // Создаем интерфейс ручного поиска
+    // (поскольку API поиск не работает в iframe контексте)
+    createManualInterface();
+    
+    iframe.fitSize(searchInterface);
     
   } catch (error) {
-    console.error('=== ОШИБКА ИНИЦИАЛИЗАЦИИ ===');
-    console.error('Ошибка:', error);
-    console.error('Текущая карточка:', currentCard);
+    console.error('Ошибка инициализации:', error);
     
     loadingState.style.display = 'none';
     noResultsState.style.display = 'block';
+    
     noResultsState.innerHTML = `
       <div class="no-results-icon">⚠️</div>
-      <div style="font-weight: 600; margin-bottom: 8px; color: var(--addon-error-color);">
-        Ошибка инициализации
+      <div style="font-weight: 600; margin-bottom: 12px; color: var(--addon-error-color);">
+        Ошибка настройки
       </div>
-      <div style="line-height: 1.5; margin-bottom: 12px;">
+      <div style="line-height: 1.6; margin-bottom: 16px; background: #fef2f2; padding: 12px; border-radius: 6px;">
         ${error.message}
       </div>
       <div style="font-size: 12px; color: var(--addon-text-secondary-color);">
-        Проверьте настройки маппинга и заполнение поля ИНН
+        Проверьте настройки маппинга в коде аддона
       </div>
     `;
     
     iframe.fitSize(searchInterface);
   }
 });
-
-// Функция определения параметров поиска
-function determineSearchConfig(card) {
-  console.log('=== ОПРЕДЕЛЕНИЕ КОНФИГУРАЦИИ ПОИСКА ===');
-  
-  // Сначала пытаемся через space_id
-  if (card.space_id && spaceMap[card.space_id]) {
-    const config = {
-      method: 'space',
-      currentId: card.space_id,
-      targetId: spaceMap[card.space_id],
-      searchBy: 'space_id'
-    };
-    console.log('Конфигурация через пространство:', config);
-    return config;
-  }
-  
-  // Затем через board_id  
-  if (card.board_id && boardMap[card.board_id]) {
-    const config = {
-      method: 'board',
-      currentId: card.board_id,
-      targetId: boardMap[card.board_id],
-      searchBy: 'board_id'
-    };
-    console.log('Конфигурация через доску:', config);
-    return config;
-  }
-  
-  // Если ничего не найдено - детальная отладочная информация
-  const debug = {
-    cardId: card.id,
-    spaceId: card.space_id,
-    boardId: card.board_id,
-    availableSpaceKeys: Object.keys(spaceMap),
-    availableBoardKeys: Object.keys(boardMap)
-  };
-  
-  console.error('Не удалось найти маппинг:', debug);
-  throw new Error(`Маппинг не найден!\n\nТекущие ID:\n- Space: ${card.space_id || 'отсутствует'}\n- Board: ${card.board_id || 'отсутствует'}\n\nНастроенные маппинги:\n- Пространства: ${Object.keys(spaceMap).join(', ')}\n- Доски: ${Object.keys(boardMap).join(', ')}`);
-}
-
-// Функция поиска договоров на целевой доске/пространстве  
-async function searchContracts() {
-  try {
-    console.log('=== НАЧАЛО ПОИСКА ДОГОВОРОВ ===');
-    
-    // Формируем параметры запроса
-    const apiParams = {};
-    apiParams[searchConfig.searchBy] = searchConfig.targetId;
-    
-    console.log('API параметры:', apiParams);
-
-    // Получаем все карточки с целевой доски/пространства
-    const allCards = await iframe.requestWithContext({
-      method: 'GET',
-      url: '/cards',
-      params: apiParams
-    });
-
-    console.log(`API вернул карточек: ${allCards ? allCards.length : 'null/undefined'}`);
-    
-    if (!allCards || !Array.isArray(allCards)) {
-      throw new Error('API вернул некорректные данные');
-    }
-    
-    // Фильтруем по ИНН локально
-    const innKey = `id_${innFieldId}`;
-    const matchingContracts = [];
-    
-    allCards.forEach(card => {
-      const cardINN = card.properties && card.properties[innKey];
-      const cardINNString = cardINN ? cardINN.toString().trim() : '';
-      
-      if (cardINNString === innValue && card.id !== currentCard.id) {
-        matchingContracts.push(card);
-        console.log(`✅ Найден договор: #${card.id} "${card.title}" с ИНН: "${cardINNString}"`);
-      } else if (cardINNString && cardINNString.includes(innValue.slice(0, 8))) {
-        console.log(`🔍 Похожий ИНН: #${card.id} "${card.title}" ИНН: "${cardINNString}"`);
-      }
-    });
-
-    foundContracts = matchingContracts;
-    console.log(`Итого найдено подходящих договоров: ${foundContracts.length}`);
-    
-    // Скрываем загрузку
-    loadingState.style.display = 'none';
-    
-    if (foundContracts.length === 0) {
-      console.log('Показываем сообщение о том, что ничего не найдено');
-      noResultsState.style.display = 'block';
-    } else {
-      console.log('Показываем найденные договоры');
-      resultsState.style.display = 'block';
-      displayContracts(foundContracts);
-    }
-    
-    // Подгоняем размер окна
-    iframe.fitSize(searchInterface);
-    
-  } catch (error) {
-    console.error('=== ОШИБКА ПОИСКА ===');
-    console.error('Ошибка:', error);
-    console.error('Search config:', searchConfig);
-    
-    loadingState.style.display = 'none';
-    noResultsState.style.display = 'block';
-    
-    noResultsState.innerHTML = `
-      <div class="no-results-icon">⚠️</div>
-      <div style="font-weight: 600; margin-bottom: 8px; color: var(--addon-error-color);">
-        Ошибка поиска
-      </div>
-      <div style="line-height: 1.5; margin-bottom: 8px;">
-        ${error.message || 'Не удалось выполнить поиск договоров'}
-      </div>
-      <div style="font-size: 11px; color: var(--addon-text-secondary-color);">
-        ${searchConfig ? `Поиск: ${searchConfig.method} #${searchConfig.targetId}` : 'Конфигурация не определена'}
-      </div>
-    `;
-    
-    iframe.fitSize(searchInterface);
-  }
-}
